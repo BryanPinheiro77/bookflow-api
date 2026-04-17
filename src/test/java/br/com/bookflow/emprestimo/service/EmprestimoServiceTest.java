@@ -8,6 +8,7 @@ import br.com.bookflow.emprestimo.repository.EmprestimoRepository;
 import br.com.bookflow.exception.PermissaoNegadaException;
 import br.com.bookflow.exception.RecursoNaoEncontradoException;
 import br.com.bookflow.exception.RegraDeNegocioException;
+import br.com.bookflow.interesse.repository.InteresseLivroRepository;
 import br.com.bookflow.livro.entity.Livro;
 import br.com.bookflow.livro.entity.LivroStatus;
 import br.com.bookflow.livro.repository.LivroRepository;
@@ -38,6 +39,9 @@ class EmprestimoServiceTest {
 
     @Mock
     private UsuarioRepository usuarioRepository;
+
+    @Mock
+    private InteresseLivroRepository interesseLivroRepository;
 
     @InjectMocks
     private EmprestimoService emprestimoService;
@@ -188,6 +192,7 @@ class EmprestimoServiceTest {
 
         when(emprestimoRepository.findById(100L)).thenReturn(Optional.of(emprestimo));
         when(emprestimoRepository.save(any(Emprestimo.class))).thenReturn(emprestimo);
+        when(interesseLivroRepository.findByLivroId(livro.getId())).thenReturn(List.of());
 
         EmprestimoResponse response = emprestimoService.devolver(100L, adminId);
 
@@ -196,6 +201,7 @@ class EmprestimoServiceTest {
         assertNotNull(response.dataDevolucao());
 
         verify(livroRepository).save(livro);
+        verify(interesseLivroRepository).findByLivroId(livro.getId());
     }
 
     @Test
@@ -230,6 +236,7 @@ class EmprestimoServiceTest {
         assertEquals("Você não tem permissão para devolver este empréstimo.", exception.getMessage());
         verify(emprestimoRepository, never()).save(any());
         verify(livroRepository, never()).save(any());
+        verify(interesseLivroRepository, never()).findByLivroId(any());
     }
 
     @Test
@@ -261,6 +268,7 @@ class EmprestimoServiceTest {
         );
 
         assertEquals("Este empréstimo já foi finalizado.", exception.getMessage());
+        verify(interesseLivroRepository, never()).findByLivroId(any());
     }
 
     @Test

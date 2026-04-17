@@ -8,6 +8,8 @@ import br.com.bookflow.emprestimo.repository.EmprestimoRepository;
 import br.com.bookflow.exception.PermissaoNegadaException;
 import br.com.bookflow.exception.RecursoNaoEncontradoException;
 import br.com.bookflow.exception.RegraDeNegocioException;
+import br.com.bookflow.interesse.entity.InteresseLivro;
+import br.com.bookflow.interesse.repository.InteresseLivroRepository;
 import br.com.bookflow.livro.entity.Livro;
 import br.com.bookflow.livro.entity.LivroStatus;
 import br.com.bookflow.livro.repository.LivroRepository;
@@ -25,13 +27,16 @@ public class EmprestimoService {
     private final EmprestimoRepository emprestimoRepository;
     private final LivroRepository livroRepository;
     private final UsuarioRepository usuarioRepository;
+    private final InteresseLivroRepository interesseLivroRepository;
 
     public EmprestimoService(EmprestimoRepository emprestimoRepository,
                              LivroRepository livroRepository,
-                             UsuarioRepository usuarioRepository) {
+                             UsuarioRepository usuarioRepository,
+                             InteresseLivroRepository interesseLivroRepository) {
         this.emprestimoRepository = emprestimoRepository;
         this.livroRepository = livroRepository;
         this.usuarioRepository = usuarioRepository;
+        this.interesseLivroRepository = interesseLivroRepository;
     }
 
     @Transactional
@@ -102,6 +107,10 @@ public class EmprestimoService {
         Emprestimo salvo = emprestimoRepository.save(emprestimo);
         livroRepository.save(livro);
 
+        List<InteresseLivro> interesses = interesseLivroRepository.findByLivroId(livro.getId());
+
+        processarInteressesNaDevolucao(livro, interesses);
+
         return toResponse(salvo);
     }
 
@@ -117,6 +126,17 @@ public class EmprestimoService {
                 .stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    private void processarInteressesNaDevolucao(Livro livro, List<InteresseLivro> interesses) {
+        if (interesses.isEmpty()) {
+            return;
+        }
+
+        // Próxima etapa:
+        // 1. Criar notificações para os usuários interessados
+        // 2. Decidir se os interesses serão mantidos ou removidos após o aviso
+        // 3. Talvez ordenar/priorizar por dataInteresse, se necessário
     }
 
     private EmprestimoResponse toResponse(Emprestimo e) {
