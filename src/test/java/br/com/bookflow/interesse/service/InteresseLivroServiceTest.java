@@ -63,7 +63,12 @@ class InteresseLivroServiceTest {
         when(interesseLivroRepository.save(any(InteresseLivro.class)))
                 .thenAnswer(invocation -> {
                     InteresseLivro interesse = invocation.getArgument(0);
-                    return new InteresseLivro(usuario, livro, interesse.getDataInteresse());
+                    return InteresseLivro.builder()
+                            .id(1L)
+                            .usuario(usuario)
+                            .livro(livro)
+                            .dataInteresse(interesse.getDataInteresse())
+                            .build();
                 });
 
         var response = interesseLivroService.registrarInteresse(1L, 10L);
@@ -124,7 +129,12 @@ class InteresseLivroServiceTest {
         livro.setTitulo("DDD");
         livro.setAutor("Eric Evans");
 
-        InteresseLivro interesse = new InteresseLivro(usuario, livro, LocalDateTime.now());
+        InteresseLivro interesse = InteresseLivro.builder()
+                .id(1L)
+                .usuario(usuario)
+                .livro(livro)
+                .dataInteresse(LocalDateTime.now())
+                .build();
 
         when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
         when(interesseLivroRepository.findByUsuarioIdOrderByDataInteresseDesc(1L))
@@ -144,9 +154,12 @@ class InteresseLivroServiceTest {
         Livro livro = new Livro();
         livro.setId(10L);
 
-        InteresseLivro interesse = new InteresseLivro();
-        interesse.setUsuario(usuario);
-        interesse.setLivro(livro);
+        InteresseLivro interesse = InteresseLivro.builder()
+                .id(1L)
+                .usuario(usuario)
+                .livro(livro)
+                .dataInteresse(LocalDateTime.now())
+                .build();
 
         when(interesseLivroRepository.findByUsuarioIdAndLivroId(1L, 10L))
                 .thenReturn(Optional.of(interesse));

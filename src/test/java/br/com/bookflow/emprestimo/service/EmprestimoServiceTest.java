@@ -8,10 +8,12 @@ import br.com.bookflow.emprestimo.repository.EmprestimoRepository;
 import br.com.bookflow.exception.PermissaoNegadaException;
 import br.com.bookflow.exception.RecursoNaoEncontradoException;
 import br.com.bookflow.exception.RegraDeNegocioException;
+import br.com.bookflow.interesse.entity.InteresseLivro;
 import br.com.bookflow.interesse.repository.InteresseLivroRepository;
 import br.com.bookflow.livro.entity.Livro;
 import br.com.bookflow.livro.entity.LivroStatus;
 import br.com.bookflow.livro.repository.LivroRepository;
+import br.com.bookflow.notificacao.service.NotificacaoService;
 import br.com.bookflow.usuario.entity.Role;
 import br.com.bookflow.usuario.entity.Usuario;
 import br.com.bookflow.usuario.repository.UsuarioRepository;
@@ -22,10 +24,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -42,6 +46,9 @@ class EmprestimoServiceTest {
 
     @Mock
     private InteresseLivroRepository interesseLivroRepository;
+
+    @Mock
+    private NotificacaoService notificacaoService;
 
     @InjectMocks
     private EmprestimoService emprestimoService;
@@ -169,7 +176,7 @@ class EmprestimoServiceTest {
     }
 
     @Test
-    void deveDevolverEmprestimoComSucesso() {
+    void deveDevolverEmprestimoComSucessoSemInteressados() {
         Long adminId = 10L;
 
         Usuario admin = Usuario.builder().id(adminId).role(Role.ADMIN).build();
@@ -192,7 +199,8 @@ class EmprestimoServiceTest {
 
         when(emprestimoRepository.findById(100L)).thenReturn(Optional.of(emprestimo));
         when(emprestimoRepository.save(any(Emprestimo.class))).thenReturn(emprestimo);
-        when(interesseLivroRepository.findByLivroId(livro.getId())).thenReturn(List.of());
+        when(interesseLivroRepository.findByLivroIdOrderByDataInteresseAsc(livro.getId()))
+                .thenReturn(List.of());
 
         EmprestimoResponse response = emprestimoService.devolver(100L, adminId);
 
@@ -201,7 +209,75 @@ class EmprestimoServiceTest {
         assertNotNull(response.dataDevolucao());
 
         verify(livroRepository).save(livro);
-        verify(interesseLivroRepository).findByLivroId(livro.getId());
+        verify(interesseLivroRepository).findByLivroIdOrderByDataInteresseAsc(livro.getId());
+        verify(notificacaoService, never()).criarNotificacao(any(), anyString(), anyString());
+        verify(interesseLivroRepository, never()).deleteByLivroId(anyLong());
+    }
+
+    @Test
+    void deveDevolverEmprestimoComSucessoENotificarInteressados() {
+        Long adminId = 10L;
+
+        Usuario admin = Usuario.builder().id(adminId).role(Role.ADMIN).build();
+        Usuario usuarioDoEmprestimo = Usuario.builder().id(1L).role(Role.USUARIO).build();
+        Usuario interessado1 = Usuario.builder().id(2L).role(Role.USUARIO).build();
+        Usuario interessado2 = Usuario.builder().id(3L).role(Role.USUARIO).build();
+
+        Livro livro = Livro.builder()
+                .id(2L)
+                .titulo("Clean Code")
+                .status(LivroStatus.EMPRESTADO)
+                .admin(admin)
+                .build();
+
+        Emprestimo emprestimo = Emprestimo.builder()
+                .id(100L)
+                .usuario(usuarioDoEmprestimo)
+                .livro(livro)
+                .dataEmprestimo(LocalDate.now().minusDays(3))
+                .status(EmprestimoStatus.ATIVO)
+                .build();
+
+        InteresseLivro interesse1 = InteresseLivro.builder()
+                .id(1L)
+                .usuario(interessado1)
+                .livro(livro)
+                .dataInteresse(LocalDateTime.now().minusDays(2))
+                .build();
+
+        InteresseLivro interesse2 = InteresseLivro.builder()
+                .id(2L)
+                .usuario(interessado2)
+                .livro(livro)
+                .dataInteresse(LocalDateTime.now().minusDays(1))
+                .build();
+
+        when(emprestimoRepository.findById(100L)).thenReturn(Optional.of(emprestimo));
+        when(emprestimoRepository.save(any(Emprestimo.class))).thenReturn(emprestimo);
+        when(interesseLivroRepository.findByLivroIdOrderByDataInteresseAsc(livro.getId()))
+                .thenReturn(List.of(interesse1, interesse2));
+
+        EmprestimoResponse response = emprestimoService.devolver(100L, adminId);
+
+        assertEquals(EmprestimoStatus.FINALIZADO, response.status());
+        assertEquals(LivroStatus.DISPONIVEL, livro.getStatus());
+        assertNotNull(response.dataDevolucao());
+
+        verify(livroRepository).save(livro);
+        verify(interesseLivroRepository).findByLivroIdOrderByDataInteresseAsc(livro.getId());
+
+        verify(notificacaoService).criarNotificacao(
+                eq(interessado1),
+                eq("Livro disponível novamente"),
+                eq("O livro \"Clean Code\" está disponível para empréstimo novamente.")
+        );
+        verify(notificacaoService).criarNotificacao(
+                eq(interessado2),
+                eq("Livro disponível novamente"),
+                eq("O livro \"Clean Code\" está disponível para empréstimo novamente.")
+        );
+
+        verify(interesseLivroRepository).deleteByLivroId(livro.getId());
     }
 
     @Test
@@ -236,7 +312,8 @@ class EmprestimoServiceTest {
         assertEquals("Você não tem permissão para devolver este empréstimo.", exception.getMessage());
         verify(emprestimoRepository, never()).save(any());
         verify(livroRepository, never()).save(any());
-        verify(interesseLivroRepository, never()).findByLivroId(any());
+        verify(interesseLivroRepository, never()).findByLivroIdOrderByDataInteresseAsc(anyLong());
+        verify(notificacaoService, never()).criarNotificacao(any(), anyString(), anyString());
     }
 
     @Test
@@ -268,7 +345,8 @@ class EmprestimoServiceTest {
         );
 
         assertEquals("Este empréstimo já foi finalizado.", exception.getMessage());
-        verify(interesseLivroRepository, never()).findByLivroId(any());
+        verify(interesseLivroRepository, never()).findByLivroIdOrderByDataInteresseAsc(anyLong());
+        verify(notificacaoService, never()).criarNotificacao(any(), anyString(), anyString());
     }
 
     @Test
