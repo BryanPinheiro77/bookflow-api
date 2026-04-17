@@ -75,6 +75,8 @@ public class EmprestimoService {
         Emprestimo salvo = emprestimoRepository.save(emprestimo);
         livroRepository.save(livro);
 
+        notificarAdminSobreNovoEmprestimo(livro, usuario);
+
         return toResponse(salvo);
     }
 
@@ -122,6 +124,14 @@ public class EmprestimoService {
                 .stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    private void notificarAdminSobreNovoEmprestimo(Livro livro, Usuario usuario) {
+        notificacaoService.criarNotificacao(
+                livro.getAdmin(),
+                "Novo empréstimo realizado",
+                "O livro \"" + livro.getTitulo() + "\" foi emprestado para " + usuario.getNome() + "."
+        );
     }
 
     private void processarInteressesNaDevolucao(Livro livro, List<InteresseLivro> interesses) {

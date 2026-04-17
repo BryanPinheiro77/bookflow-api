@@ -58,7 +58,11 @@ class EmprestimoServiceTest {
         Long usuarioId = 1L;
         Long livroId = 2L;
 
-        Usuario usuario = Usuario.builder().id(usuarioId).role(Role.USUARIO).build();
+        Usuario usuario = Usuario.builder()
+                .id(usuarioId)
+                .nome("Bryan")
+                .role(Role.USUARIO)
+                .build();
         Usuario admin = Usuario.builder().id(10L).role(Role.ADMIN).build();
 
         Livro livro = Livro.builder()
@@ -90,6 +94,12 @@ class EmprestimoServiceTest {
         assertEquals(EmprestimoStatus.ATIVO, response.status());
         assertEquals("Dom Casmurro", response.tituloLivro());
         assertEquals(LivroStatus.EMPRESTADO, livro.getStatus());
+
+        verify(notificacaoService).criarNotificacao(
+                eq(admin),
+                eq("Novo empréstimo realizado"),
+                eq("O livro \"Dom Casmurro\" foi emprestado para Bryan.")
+        );
 
         verify(livroRepository).save(livro);
     }
