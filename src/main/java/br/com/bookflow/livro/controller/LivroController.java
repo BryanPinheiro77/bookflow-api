@@ -4,8 +4,7 @@ import br.com.bookflow.livro.dto.AtualizarLivroRequest;
 import br.com.bookflow.livro.dto.CadastrarLivroRequest;
 import br.com.bookflow.livro.dto.LivroResponse;
 import br.com.bookflow.livro.service.LivroService;
-import br.com.bookflow.usuario.entity.Usuario;
-import br.com.bookflow.usuario.repository.UsuarioRepository;
+import br.com.bookflow.usuario.service.UsuarioAutenticadoService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,11 +18,12 @@ import java.util.List;
 public class LivroController {
 
     private final LivroService livroService;
-    private final UsuarioRepository usuarioRepository;
+    private final UsuarioAutenticadoService usuarioAutenticadoService;
 
-    public LivroController(LivroService livroService, UsuarioRepository usuarioRepository) {
+    public LivroController(LivroService livroService,
+                           UsuarioAutenticadoService usuarioAutenticadoService) {
         this.livroService = livroService;
-        this.usuarioRepository = usuarioRepository;
+        this.usuarioAutenticadoService = usuarioAutenticadoService;
     }
 
     @GetMapping
@@ -43,7 +43,7 @@ public class LivroController {
     @PreAuthorize("hasRole('ADMIN')")
     public LivroResponse cadastrar(@RequestBody @Valid CadastrarLivroRequest request,
                                    Authentication authentication) {
-        Long adminId = getAdminId(authentication);
+        Long adminId = usuarioAutenticadoService.buscarId(authentication);
         return livroService.cadastrar(request, adminId);
     }
 
@@ -52,7 +52,7 @@ public class LivroController {
     public LivroResponse atualizar(@PathVariable Long id,
                                    @RequestBody @Valid AtualizarLivroRequest request,
                                    Authentication authentication) {
-        Long adminId = getAdminId(authentication);
+        Long adminId = usuarioAutenticadoService.buscarId(authentication);
         return livroService.atualizar(id, request, adminId);
     }
 
@@ -61,16 +61,7 @@ public class LivroController {
     @PreAuthorize("hasRole('ADMIN')")
     public void excluir(@PathVariable Long id,
                         Authentication authentication) {
-        Long adminId = getAdminId(authentication);
+        Long adminId = usuarioAutenticadoService.buscarId(authentication);
         livroService.excluir(id, adminId);
-    }
-
-    private Long getAdminId(Authentication authentication) {
-        String email = authentication.getName();
-
-        Usuario admin = usuarioRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Administrador autenticado não encontrado."));
-
-        return admin.getId();
     }
 }
