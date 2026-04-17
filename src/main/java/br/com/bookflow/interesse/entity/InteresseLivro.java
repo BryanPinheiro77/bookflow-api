@@ -3,6 +3,7 @@ package br.com.bookflow.interesse.entity;
 import br.com.bookflow.livro.entity.Livro;
 import br.com.bookflow.usuario.entity.Usuario;
 import jakarta.persistence.*;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
@@ -13,6 +14,11 @@ import java.time.LocalDateTime;
                 @UniqueConstraint(columnNames = {"usuario_id", "livro_id"})
         }
 )
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class InteresseLivro {
 
     @Id
@@ -29,41 +35,4 @@ public class InteresseLivro {
 
     @Column(name = "data_interesse", nullable = false)
     private LocalDateTime dataInteresse;
-
-    public InteresseLivro() {
-    }
-
-    public InteresseLivro(Usuario usuario, Livro livro, LocalDateTime dataInteresse) {
-        this.usuario = usuario;
-        this.livro = livro;
-        this.dataInteresse = dataInteresse;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public Usuario getUsuario() {
-        return usuario;
-    }
-
-    public void setUsuario(Usuario usuario) {
-        this.usuario = usuario;
-    }
-
-    public Livro getLivro() {
-        return livro;
-    }
-
-    public void setLivro(Livro livro) {
-        this.livro = livro;
-    }
-
-    public LocalDateTime getDataInteresse() {
-        return dataInteresse;
-    }
-
-    public void setDataInteresse(LocalDateTime dataInteresse) {
-        this.dataInteresse = dataInteresse;
-    }
 }

@@ -12,7 +12,7 @@ public interface InteresseLivroRepository extends JpaRepository<InteresseLivro, 
 
     List<InteresseLivro> findByUsuarioIdOrderByDataInteresseDesc(Long usuarioId);
 
-    List<InteresseLivro> findByLivroId(Long livroId);
+    List<InteresseLivro> findByLivroIdOrderByDataInteresseAsc(Long livroId);
 
     Optional<InteresseLivro> findByUsuarioIdAndLivroId(Long usuarioId, Long livroId);
 

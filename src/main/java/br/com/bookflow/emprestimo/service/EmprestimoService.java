@@ -13,6 +13,7 @@ import br.com.bookflow.interesse.repository.InteresseLivroRepository;
 import br.com.bookflow.livro.entity.Livro;
 import br.com.bookflow.livro.entity.LivroStatus;
 import br.com.bookflow.livro.repository.LivroRepository;
+import br.com.bookflow.notificacao.service.NotificacaoService;
 import br.com.bookflow.usuario.entity.Usuario;
 import br.com.bookflow.usuario.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
@@ -28,15 +29,18 @@ public class EmprestimoService {
     private final LivroRepository livroRepository;
     private final UsuarioRepository usuarioRepository;
     private final InteresseLivroRepository interesseLivroRepository;
+    private final NotificacaoService notificacaoService;
 
     public EmprestimoService(EmprestimoRepository emprestimoRepository,
                              LivroRepository livroRepository,
                              UsuarioRepository usuarioRepository,
-                             InteresseLivroRepository interesseLivroRepository) {
+                             InteresseLivroRepository interesseLivroRepository,
+                             NotificacaoService notificacaoService) {
         this.emprestimoRepository = emprestimoRepository;
         this.livroRepository = livroRepository;
         this.usuarioRepository = usuarioRepository;
         this.interesseLivroRepository = interesseLivroRepository;
+        this.notificacaoService = notificacaoService;
     }
 
     @Transactional
@@ -51,17 +55,12 @@ public class EmprestimoService {
                         new RecursoNaoEncontradoException("Livro não encontrado."));
 
         if (livro.getStatus() != LivroStatus.DISPONIVEL) {
-            throw new RegraDeNegocioException(
-                    "O livro não está disponível para empréstimo."
-            );
+            throw new RegraDeNegocioException("O livro não está disponível para empréstimo.");
         }
 
         if (emprestimoRepository.existsByLivroIdAndStatus(
                 livro.getId(), EmprestimoStatus.ATIVO)) {
-
-            throw new RegraDeNegocioException(
-                    "Já existe um empréstimo ativo para este livro."
-            );
+            throw new RegraDeNegocioException("Já existe um empréstimo ativo para este livro.");
         }
 
         Emprestimo emprestimo = Emprestimo.builder()
@@ -87,15 +86,11 @@ public class EmprestimoService {
                         new RecursoNaoEncontradoException("Empréstimo não encontrado."));
 
         if (!emprestimo.getLivro().getAdmin().getId().equals(adminId)) {
-            throw new PermissaoNegadaException(
-                    "Você não tem permissão para devolver este empréstimo."
-            );
+            throw new PermissaoNegadaException("Você não tem permissão para devolver este empréstimo.");
         }
 
         if (emprestimo.getStatus() == EmprestimoStatus.FINALIZADO) {
-            throw new RegraDeNegocioException(
-                    "Este empréstimo já foi finalizado."
-            );
+            throw new RegraDeNegocioException("Este empréstimo já foi finalizado.");
         }
 
         emprestimo.setStatus(EmprestimoStatus.FINALIZADO);
@@ -107,7 +102,8 @@ public class EmprestimoService {
         Emprestimo salvo = emprestimoRepository.save(emprestimo);
         livroRepository.save(livro);
 
-        List<InteresseLivro> interesses = interesseLivroRepository.findByLivroId(livro.getId());
+        List<InteresseLivro> interesses = interesseLivroRepository
+                .findByLivroIdOrderByDataInteresseAsc(livro.getId());
 
         processarInteressesNaDevolucao(livro, interesses);
 
@@ -133,10 +129,15 @@ public class EmprestimoService {
             return;
         }
 
-        // Próxima etapa:
-        // 1. Criar notificações para os usuários interessados
-        // 2. Decidir se os interesses serão mantidos ou removidos após o aviso
-        // 3. Talvez ordenar/priorizar por dataInteresse, se necessário
+        for (InteresseLivro interesse : interesses) {
+            notificacaoService.criarNotificacao(
+                    interesse.getUsuario(),
+                    "Livro disponível novamente",
+                    "O livro \"" + livro.getTitulo() + "\" está disponível para empréstimo novamente."
+            );
+        }
+
+        interesseLivroRepository.deleteByLivroId(livro.getId());
     }
 
     private EmprestimoResponse toResponse(Emprestimo e) {
