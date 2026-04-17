@@ -1,6 +1,7 @@
 package br.com.bookflow.notificacao.controller;
 
 import br.com.bookflow.notificacao.dto.NotificacaoResponse;
+import br.com.bookflow.notificacao.dto.QuantidadeNotificacoesNaoLidasResponse;
 import br.com.bookflow.notificacao.service.NotificacaoService;
 import br.com.bookflow.usuario.service.UsuarioAutenticadoService;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -29,10 +30,24 @@ public class NotificacaoController {
         return notificacaoService.listarMinhasNotificacoes(usuarioId);
     }
 
+    @GetMapping("/nao-lidas/quantidade")
+    @PreAuthorize("hasAnyRole('ADMIN', 'USUARIO')")
+    public QuantidadeNotificacoesNaoLidasResponse contarNaoLidas(Authentication authentication) {
+        Long usuarioId = usuarioAutenticadoService.buscarId(authentication);
+        return notificacaoService.contarNaoLidas(usuarioId);
+    }
+
     @PatchMapping("/{id}/ler")
     @PreAuthorize("hasAnyRole('ADMIN', 'USUARIO')")
     public void marcarComoLida(@PathVariable Long id, Authentication authentication) {
         Long usuarioId = usuarioAutenticadoService.buscarId(authentication);
         notificacaoService.marcarComoLida(id, usuarioId);
+    }
+
+    @PatchMapping("/ler-todas")
+    @PreAuthorize("hasAnyRole('ADMIN', 'USUARIO')")
+    public void marcarTodasComoLidas(Authentication authentication) {
+        Long usuarioId = usuarioAutenticadoService.buscarId(authentication);
+        notificacaoService.marcarTodasComoLidas(usuarioId);
     }
 }

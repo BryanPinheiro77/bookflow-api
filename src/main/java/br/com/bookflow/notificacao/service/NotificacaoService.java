@@ -2,10 +2,12 @@ package br.com.bookflow.notificacao.service;
 
 import br.com.bookflow.exception.RecursoNaoEncontradoException;
 import br.com.bookflow.notificacao.dto.NotificacaoResponse;
+import br.com.bookflow.notificacao.dto.QuantidadeNotificacoesNaoLidasResponse;
 import br.com.bookflow.notificacao.entity.Notificacao;
 import br.com.bookflow.notificacao.repository.NotificacaoRepository;
 import br.com.bookflow.usuario.entity.Usuario;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -38,12 +40,31 @@ public class NotificacaoService {
                 .toList();
     }
 
+    @Transactional
     public void marcarComoLida(Long notificacaoId, Long usuarioId) {
         Notificacao notificacao = notificacaoRepository.findByIdAndDestinatarioId(notificacaoId, usuarioId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Notificação não encontrada."));
 
         notificacao.setLida(true);
         notificacaoRepository.save(notificacao);
+    }
+
+    @Transactional
+    public void marcarTodasComoLidas(Long usuarioId) {
+        List<Notificacao> notificacoesNaoLidas = notificacaoRepository
+                .findByDestinatarioIdAndLidaFalse(usuarioId);
+
+        if (notificacoesNaoLidas.isEmpty()) {
+            return;
+        }
+
+        notificacoesNaoLidas.forEach(notificacao -> notificacao.setLida(true));
+        notificacaoRepository.saveAll(notificacoesNaoLidas);
+    }
+
+    public QuantidadeNotificacoesNaoLidasResponse contarNaoLidas(Long usuarioId) {
+        long quantidade = notificacaoRepository.countByDestinatarioIdAndLidaFalse(usuarioId);
+        return new QuantidadeNotificacoesNaoLidasResponse(quantidade);
     }
 
     private NotificacaoResponse toResponse(Notificacao notificacao) {
