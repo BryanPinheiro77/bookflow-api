@@ -68,9 +68,9 @@ class InteresseLivroServiceTest {
 
         var response = interesseLivroService.registrarInteresse(1L, 10L);
 
-        assertEquals(10L, response.getLivroId());
-        assertEquals("Clean Code", response.getTituloLivro());
-        assertEquals("Robert Martin", response.getAutorLivro());
+        assertEquals(10L, response.livroId());
+        assertEquals("Clean Code", response.tituloLivro());
+        assertEquals("Robert Martin", response.autorLivro());
 
         ArgumentCaptor<InteresseLivro> captor = ArgumentCaptor.forClass(InteresseLivro.class);
         verify(interesseLivroRepository).save(captor.capture());
@@ -133,7 +133,7 @@ class InteresseLivroServiceTest {
         var lista = interesseLivroService.listarMeusInteresses(1L);
 
         assertEquals(1, lista.size());
-        assertEquals("DDD", lista.get(0).getTituloLivro());
+        assertEquals("DDD", lista.get(0).tituloLivro());
     }
 
     @Test
