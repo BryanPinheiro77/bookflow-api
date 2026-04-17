@@ -37,14 +37,16 @@ public class EmprestimoController {
 
     @PutMapping("/{id}/devolver")
     @PreAuthorize("hasRole('ADMIN')")
-    public EmprestimoResponse devolver(@PathVariable Long id) {
-        return emprestimoService.devolver(id);
+    public EmprestimoResponse devolver(@PathVariable Long id, Authentication authentication) {
+        Long adminId = getUsuarioId(authentication);
+        return emprestimoService.devolver(id, adminId);
     }
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public List<EmprestimoResponse> listarTodos() {
-        return emprestimoService.listarTodos();
+    public List<EmprestimoResponse> listarEmprestimosDoAdmin(Authentication authentication) {
+        Long adminId = getUsuarioId(authentication);
+        return emprestimoService.listarPorAdmin(adminId);
     }
 
     @GetMapping("/me")

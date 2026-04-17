@@ -10,5 +10,7 @@ public interface EmprestimoRepository extends JpaRepository<Emprestimo, Long> {
 
     List<Emprestimo> findByUsuarioId(Long usuarioId);
 
+    List<Emprestimo> findByLivroAdminId(Long adminId);
+
     boolean existsByLivroIdAndStatus(Long livroId, EmprestimoStatus status);
 }

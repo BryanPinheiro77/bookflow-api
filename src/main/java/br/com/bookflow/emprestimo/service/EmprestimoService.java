@@ -63,9 +63,13 @@ public class EmprestimoService {
     }
 
     @Transactional
-    public EmprestimoResponse devolver(Long emprestimoId) {
+    public EmprestimoResponse devolver(Long emprestimoId, Long adminId) {
         Emprestimo emprestimo = emprestimoRepository.findById(emprestimoId)
                 .orElseThrow(() -> new RuntimeException("Empréstimo não encontrado."));
+
+        if (!emprestimo.getLivro().getAdmin().getId().equals(adminId)) {
+            throw new RuntimeException("Você não tem permissão para devolver este empréstimo.");
+        }
 
         if (emprestimo.getStatus() == EmprestimoStatus.FINALIZADO) {
             throw new RuntimeException("Este empréstimo já foi finalizado.");
@@ -83,8 +87,8 @@ public class EmprestimoService {
         return toResponse(emprestimoAtualizado);
     }
 
-    public List<EmprestimoResponse> listarTodos() {
-        return emprestimoRepository.findAll()
+    public List<EmprestimoResponse> listarPorAdmin(Long adminId) {
+        return emprestimoRepository.findByLivroAdminId(adminId)
                 .stream()
                 .map(this::toResponse)
                 .toList();
