@@ -16,10 +16,4 @@ public class UsuarioController {
     public UsuarioController(UsuarioService usuarioService) {
         this.usuarioService = usuarioService;
     }
-
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public UsuarioResponse cadastrar(@RequestBody @Valid CadastrarUsuarioRequest request) {
-        return usuarioService.cadastrar(request);
-    }
 }
