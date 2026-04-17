@@ -3,6 +3,7 @@ package br.com.bookflow.auth.service;
 import br.com.bookflow.auth.dto.LoginRequest;
 import br.com.bookflow.auth.dto.LoginResponse;
 import br.com.bookflow.config.JwtService;
+import br.com.bookflow.exception.CredenciaisInvalidasException;
 import br.com.bookflow.usuario.entity.Usuario;
 import br.com.bookflow.usuario.repository.UsuarioRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,12 +26,12 @@ public class AuthService {
 
     public LoginResponse login(LoginRequest request) {
         Usuario usuario = usuarioRepository.findByEmail(request.email())
-                .orElseThrow(() -> new RuntimeException("Email ou senha inválidos"));
+                .orElseThrow(() -> new CredenciaisInvalidasException("Email ou senha inválidos"));
 
         boolean senhaCorreta = passwordEncoder.matches(request.senha(), usuario.getSenha());
 
         if (!senhaCorreta) {
-            throw new RuntimeException("Email ou senha inválidos");
+            throw new CredenciaisInvalidasException("Email ou senha inválidos");
         }
 
         String token = jwtService.generateToken(usuario);

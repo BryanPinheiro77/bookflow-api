@@ -1,5 +1,7 @@
 package br.com.bookflow.livro.service;
 
+import br.com.bookflow.exception.PermissaoNegadaException;
+import br.com.bookflow.exception.RecursoNaoEncontradoException;
 import br.com.bookflow.livro.dto.AtualizarLivroRequest;
 import br.com.bookflow.livro.dto.CadastrarLivroRequest;
 import br.com.bookflow.livro.dto.LivroResponse;
@@ -95,8 +97,10 @@ class LivroServiceTest {
 
         when(usuarioRepository.findById(adminId)).thenReturn(Optional.empty());
 
-        RuntimeException exception = assertThrows(RuntimeException.class,
-                () -> livroService.cadastrar(request, adminId));
+        RecursoNaoEncontradoException exception = assertThrows(
+                RecursoNaoEncontradoException.class,
+                () -> livroService.cadastrar(request, adminId)
+        );
 
         assertEquals("Administrador não encontrado.", exception.getMessage());
         verify(livroRepository, never()).save(any());
@@ -159,8 +163,10 @@ class LivroServiceTest {
     void deveLancarExcecaoQuandoLivroNaoExistirAoBuscarPorId() {
         when(livroRepository.findById(1L)).thenReturn(Optional.empty());
 
-        RuntimeException exception = assertThrows(RuntimeException.class,
-                () -> livroService.buscarPorId(1L));
+        RecursoNaoEncontradoException exception = assertThrows(
+                RecursoNaoEncontradoException.class,
+                () -> livroService.buscarPorId(1L)
+        );
 
         assertEquals("Livro não encontrado.", exception.getMessage());
     }
@@ -223,8 +229,10 @@ class LivroServiceTest {
 
         when(livroRepository.findById(1L)).thenReturn(Optional.of(livro));
 
-        RuntimeException exception = assertThrows(RuntimeException.class,
-                () -> livroService.atualizar(1L, request, adminLogadoId));
+        PermissaoNegadaException exception = assertThrows(
+                PermissaoNegadaException.class,
+                () -> livroService.atualizar(1L, request, adminLogadoId)
+        );
 
         assertEquals("Você não tem permissão para alterar este livro.", exception.getMessage());
         verify(livroRepository, never()).save(any());
@@ -270,8 +278,10 @@ class LivroServiceTest {
 
         when(livroRepository.findById(1L)).thenReturn(Optional.of(livro));
 
-        RuntimeException exception = assertThrows(RuntimeException.class,
-                () -> livroService.excluir(1L, adminLogadoId));
+        PermissaoNegadaException exception = assertThrows(
+                PermissaoNegadaException.class,
+                () -> livroService.excluir(1L, adminLogadoId)
+        );
 
         assertEquals("Você não tem permissão para alterar este livro.", exception.getMessage());
         verify(livroRepository, never()).delete(any());

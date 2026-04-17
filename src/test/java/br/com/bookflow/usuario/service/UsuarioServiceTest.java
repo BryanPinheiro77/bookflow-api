@@ -1,5 +1,6 @@
 package br.com.bookflow.usuario.service;
 
+import br.com.bookflow.exception.EmailJaCadastradoException;
 import br.com.bookflow.usuario.dto.CadastrarUsuarioRequest;
 import br.com.bookflow.usuario.dto.UsuarioResponse;
 import br.com.bookflow.usuario.entity.Role;
@@ -82,8 +83,10 @@ class UsuarioServiceTest {
     void deveLancarExcecaoQuandoEmailJaEstiverCadastrado() {
         when(usuarioRepository.existsByEmail(cadastrarUsuarioRequest.email())).thenReturn(true);
 
-        RuntimeException exception = assertThrows(RuntimeException.class,
-                () -> usuarioService.cadastrar(cadastrarUsuarioRequest));
+        EmailJaCadastradoException exception = assertThrows(
+                EmailJaCadastradoException.class,
+                () -> usuarioService.cadastrar(cadastrarUsuarioRequest)
+        );
 
         assertEquals("Já existe um usuário cadastrado com este email.", exception.getMessage());
 

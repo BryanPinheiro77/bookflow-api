@@ -1,5 +1,7 @@
 package br.com.bookflow.livro.service;
 
+import br.com.bookflow.exception.PermissaoNegadaException;
+import br.com.bookflow.exception.RecursoNaoEncontradoException;
 import br.com.bookflow.livro.dto.AtualizarLivroRequest;
 import br.com.bookflow.livro.dto.CadastrarLivroRequest;
 import br.com.bookflow.livro.dto.LivroResponse;
@@ -18,14 +20,17 @@ public class LivroService {
     private final LivroRepository livroRepository;
     private final UsuarioRepository usuarioRepository;
 
-    public LivroService(LivroRepository livroRepository, UsuarioRepository usuarioRepository) {
+    public LivroService(LivroRepository livroRepository,
+                        UsuarioRepository usuarioRepository) {
         this.livroRepository = livroRepository;
         this.usuarioRepository = usuarioRepository;
     }
 
     public LivroResponse cadastrar(CadastrarLivroRequest request, Long adminId) {
+
         Usuario admin = usuarioRepository.findById(adminId)
-                .orElseThrow(() -> new RuntimeException("Administrador não encontrado."));
+                .orElseThrow(() ->
+                        new RecursoNaoEncontradoException("Administrador não encontrado."));
 
         Livro livro = Livro.builder()
                 .titulo(request.titulo())
@@ -36,9 +41,7 @@ public class LivroService {
                 .admin(admin)
                 .build();
 
-        Livro livroSalvo = livroRepository.save(livro);
-
-        return toResponse(livroSalvo);
+        return toResponse(livroRepository.save(livro));
     }
 
     public List<LivroResponse> listarTodos() {
@@ -50,14 +53,19 @@ public class LivroService {
 
     public LivroResponse buscarPorId(Long id) {
         Livro livro = livroRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Livro não encontrado."));
+                .orElseThrow(() ->
+                        new RecursoNaoEncontradoException("Livro não encontrado."));
 
         return toResponse(livro);
     }
 
-    public LivroResponse atualizar(Long id, AtualizarLivroRequest request, Long adminId) {
+    public LivroResponse atualizar(Long id,
+                                   AtualizarLivroRequest request,
+                                   Long adminId) {
+
         Livro livro = livroRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Livro não encontrado."));
+                .orElseThrow(() ->
+                        new RecursoNaoEncontradoException("Livro não encontrado."));
 
         validarPermissaoAdmin(livro, adminId);
 
@@ -66,14 +74,14 @@ public class LivroService {
         livro.setCategoria(request.categoria());
         livro.setCapaUrl(request.capaUrl());
 
-        Livro livroAtualizado = livroRepository.save(livro);
-
-        return toResponse(livroAtualizado);
+        return toResponse(livroRepository.save(livro));
     }
 
     public void excluir(Long id, Long adminId) {
+
         Livro livro = livroRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Livro não encontrado."));
+                .orElseThrow(() ->
+                        new RecursoNaoEncontradoException("Livro não encontrado."));
 
         validarPermissaoAdmin(livro, adminId);
 
@@ -82,7 +90,9 @@ public class LivroService {
 
     private void validarPermissaoAdmin(Livro livro, Long adminId) {
         if (!livro.getAdmin().getId().equals(adminId)) {
-            throw new RuntimeException("Você não tem permissão para alterar este livro.");
+            throw new PermissaoNegadaException(
+                    "Você não tem permissão para alterar este livro."
+            );
         }
     }
 

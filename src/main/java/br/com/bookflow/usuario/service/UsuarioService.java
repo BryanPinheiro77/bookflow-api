@@ -1,5 +1,6 @@
 package br.com.bookflow.usuario.service;
 
+import br.com.bookflow.exception.EmailJaCadastradoException;
 import br.com.bookflow.usuario.dto.CadastrarUsuarioRequest;
 import br.com.bookflow.usuario.dto.UsuarioResponse;
 import br.com.bookflow.usuario.entity.Usuario;
@@ -20,7 +21,7 @@ public class UsuarioService {
 
     public UsuarioResponse cadastrar(CadastrarUsuarioRequest request) {
         if (usuarioRepository.existsByEmail(request.email())) {
-            throw new RuntimeException("Já existe um usuário cadastrado com este email.");
+            throw new EmailJaCadastradoException("Já existe um usuário cadastrado com este email.");
         }
 
         Usuario usuario = Usuario.builder()

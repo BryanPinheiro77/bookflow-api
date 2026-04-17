@@ -3,6 +3,7 @@ package br.com.bookflow.auth.service;
 import br.com.bookflow.auth.dto.LoginRequest;
 import br.com.bookflow.auth.dto.LoginResponse;
 import br.com.bookflow.config.JwtService;
+import br.com.bookflow.exception.CredenciaisInvalidasException;
 import br.com.bookflow.usuario.entity.Role;
 import br.com.bookflow.usuario.entity.Usuario;
 import br.com.bookflow.usuario.repository.UsuarioRepository;
@@ -70,8 +71,10 @@ class AuthServiceTest {
     void deveLancarExcecaoQuandoEmailNaoExistir() {
         when(usuarioRepository.findByEmail(loginRequest.email())).thenReturn(Optional.empty());
 
-        RuntimeException exception = assertThrows(RuntimeException.class,
-                () -> authService.login(loginRequest));
+        CredenciaisInvalidasException exception = assertThrows(
+                CredenciaisInvalidasException.class,
+                () -> authService.login(loginRequest)
+        );
 
         assertEquals("Email ou senha inválidos", exception.getMessage());
 
@@ -85,8 +88,10 @@ class AuthServiceTest {
         when(usuarioRepository.findByEmail(loginRequest.email())).thenReturn(Optional.of(usuario));
         when(passwordEncoder.matches(loginRequest.senha(), usuario.getSenha())).thenReturn(false);
 
-        RuntimeException exception = assertThrows(RuntimeException.class,
-                () -> authService.login(loginRequest));
+        CredenciaisInvalidasException exception = assertThrows(
+                CredenciaisInvalidasException.class,
+                () -> authService.login(loginRequest)
+        );
 
         assertEquals("Email ou senha inválidos", exception.getMessage());
 

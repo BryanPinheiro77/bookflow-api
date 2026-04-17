@@ -5,6 +5,9 @@ import br.com.bookflow.emprestimo.dto.EmprestimoResponse;
 import br.com.bookflow.emprestimo.entity.Emprestimo;
 import br.com.bookflow.emprestimo.entity.EmprestimoStatus;
 import br.com.bookflow.emprestimo.repository.EmprestimoRepository;
+import br.com.bookflow.exception.PermissaoNegadaException;
+import br.com.bookflow.exception.RecursoNaoEncontradoException;
+import br.com.bookflow.exception.RegraDeNegocioException;
 import br.com.bookflow.livro.entity.Livro;
 import br.com.bookflow.livro.entity.LivroStatus;
 import br.com.bookflow.livro.repository.LivroRepository;
@@ -33,18 +36,27 @@ public class EmprestimoService {
 
     @Transactional
     public EmprestimoResponse criar(CriarEmprestimoRequest request, Long usuarioId) {
+
         Usuario usuario = usuarioRepository.findById(usuarioId)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
+                .orElseThrow(() ->
+                        new RecursoNaoEncontradoException("Usuário não encontrado."));
 
         Livro livro = livroRepository.findById(request.livroId())
-                .orElseThrow(() -> new RuntimeException("Livro não encontrado."));
+                .orElseThrow(() ->
+                        new RecursoNaoEncontradoException("Livro não encontrado."));
 
         if (livro.getStatus() != LivroStatus.DISPONIVEL) {
-            throw new RuntimeException("O livro não está disponível para empréstimo.");
+            throw new RegraDeNegocioException(
+                    "O livro não está disponível para empréstimo."
+            );
         }
 
-        if (emprestimoRepository.existsByLivroIdAndStatus(livro.getId(), EmprestimoStatus.ATIVO)) {
-            throw new RuntimeException("Já existe um empréstimo ativo para este livro.");
+        if (emprestimoRepository.existsByLivroIdAndStatus(
+                livro.getId(), EmprestimoStatus.ATIVO)) {
+
+            throw new RegraDeNegocioException(
+                    "Já existe um empréstimo ativo para este livro."
+            );
         }
 
         Emprestimo emprestimo = Emprestimo.builder()
@@ -56,23 +68,29 @@ public class EmprestimoService {
 
         livro.setStatus(LivroStatus.EMPRESTADO);
 
-        Emprestimo emprestimoSalvo = emprestimoRepository.save(emprestimo);
+        Emprestimo salvo = emprestimoRepository.save(emprestimo);
         livroRepository.save(livro);
 
-        return toResponse(emprestimoSalvo);
+        return toResponse(salvo);
     }
 
     @Transactional
     public EmprestimoResponse devolver(Long emprestimoId, Long adminId) {
+
         Emprestimo emprestimo = emprestimoRepository.findById(emprestimoId)
-                .orElseThrow(() -> new RuntimeException("Empréstimo não encontrado."));
+                .orElseThrow(() ->
+                        new RecursoNaoEncontradoException("Empréstimo não encontrado."));
 
         if (!emprestimo.getLivro().getAdmin().getId().equals(adminId)) {
-            throw new RuntimeException("Você não tem permissão para devolver este empréstimo.");
+            throw new PermissaoNegadaException(
+                    "Você não tem permissão para devolver este empréstimo."
+            );
         }
 
         if (emprestimo.getStatus() == EmprestimoStatus.FINALIZADO) {
-            throw new RuntimeException("Este empréstimo já foi finalizado.");
+            throw new RegraDeNegocioException(
+                    "Este empréstimo já foi finalizado."
+            );
         }
 
         emprestimo.setStatus(EmprestimoStatus.FINALIZADO);
@@ -81,10 +99,10 @@ public class EmprestimoService {
         Livro livro = emprestimo.getLivro();
         livro.setStatus(LivroStatus.DISPONIVEL);
 
-        Emprestimo emprestimoAtualizado = emprestimoRepository.save(emprestimo);
+        Emprestimo salvo = emprestimoRepository.save(emprestimo);
         livroRepository.save(livro);
 
-        return toResponse(emprestimoAtualizado);
+        return toResponse(salvo);
     }
 
     public List<EmprestimoResponse> listarPorAdmin(Long adminId) {
@@ -101,15 +119,15 @@ public class EmprestimoService {
                 .toList();
     }
 
-    private EmprestimoResponse toResponse(Emprestimo emprestimo) {
+    private EmprestimoResponse toResponse(Emprestimo e) {
         return new EmprestimoResponse(
-                emprestimo.getId(),
-                emprestimo.getUsuario().getId(),
-                emprestimo.getLivro().getId(),
-                emprestimo.getLivro().getTitulo(),
-                emprestimo.getDataEmprestimo(),
-                emprestimo.getDataDevolucao(),
-                emprestimo.getStatus()
+                e.getId(),
+                e.getUsuario().getId(),
+                e.getLivro().getId(),
+                e.getLivro().getTitulo(),
+                e.getDataEmprestimo(),
+                e.getDataDevolucao(),
+                e.getStatus()
         );
     }
 }
