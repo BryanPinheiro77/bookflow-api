@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -63,5 +64,14 @@ public class LivroController {
                         Authentication authentication) {
         Long adminId = usuarioAutenticadoService.buscarId(authentication);
         livroService.excluir(id, adminId);
+    }
+
+    @PostMapping("/{id}/capa")
+    @PreAuthorize("hasRole('ADMIN')")
+    public LivroResponse uploadCapa(@PathVariable Long id,
+                                    @RequestParam("file") MultipartFile file,
+                                    Authentication authentication) {
+        Long adminId = usuarioAutenticadoService.buscarId(authentication);
+        return livroService.uploadCapa(id, file, adminId);
     }
 }

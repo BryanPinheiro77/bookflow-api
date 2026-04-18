@@ -12,6 +12,10 @@ import br.com.bookflow.usuario.entity.Usuario;
 import br.com.bookflow.usuario.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
 
+import br.com.bookflow.upload.dto.UploadResponse;
+import br.com.bookflow.upload.service.UploadService;
+import org.springframework.web.multipart.MultipartFile;
+
 import java.util.List;
 
 @Service
@@ -19,11 +23,14 @@ public class LivroService {
 
     private final LivroRepository livroRepository;
     private final UsuarioRepository usuarioRepository;
+    private final UploadService uploadService;
 
     public LivroService(LivroRepository livroRepository,
-                        UsuarioRepository usuarioRepository) {
+                        UsuarioRepository usuarioRepository,
+                        UploadService uploadService) {
         this.livroRepository = livroRepository;
         this.usuarioRepository = usuarioRepository;
+        this.uploadService = uploadService;
     }
 
     public LivroResponse cadastrar(CadastrarLivroRequest request, Long adminId) {
@@ -94,6 +101,23 @@ public class LivroService {
                     "Você não tem permissão para alterar este livro."
             );
         }
+    }
+
+    public LivroResponse uploadCapa(Long livroId, MultipartFile file, Long adminId) {
+        Livro livro = livroRepository.findById(livroId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Livro não encontrado."));
+
+        if (!livro.getAdmin().getId().equals(adminId)) {
+            throw new PermissaoNegadaException("Você não tem permissão para alterar a capa deste livro.");
+        }
+
+        UploadResponse uploadResponse = uploadService.uploadCapaLivro(file);
+
+        livro.setCapaUrl(uploadResponse.fileUrl());
+
+        Livro livroSalvo = livroRepository.save(livro);
+
+        return toResponse(livroSalvo);
     }
 
     private LivroResponse toResponse(Livro livro) {
