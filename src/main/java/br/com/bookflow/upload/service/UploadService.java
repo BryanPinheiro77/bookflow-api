@@ -44,6 +44,24 @@ public class UploadService {
         }
     }
 
+    public void removerArquivo(String fileUrl) {
+        if (fileUrl == null || fileUrl.isBlank()) {
+            return;
+        }
+
+        if (!fileUrl.startsWith("/uploads/")) {
+            return;
+        }
+
+        try {
+            String caminhoRelativo = fileUrl.replaceFirst("/uploads/", "");
+            Path arquivo = uploadRootPath.resolve(caminhoRelativo).normalize();
+            Files.deleteIfExists(arquivo);
+        } catch (IOException e) {
+            throw new RegraDeNegocioException("Erro ao remover arquivo de imagem.");
+        }
+    }
+
     private void validarArquivo(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new RegraDeNegocioException("O arquivo de imagem é obrigatório.");
