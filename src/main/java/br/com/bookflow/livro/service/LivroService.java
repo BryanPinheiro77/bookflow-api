@@ -88,6 +88,10 @@ public class LivroService {
             throw new PermissaoNegadaException("Você não tem permissão para alterar este livro.");
         }
 
+        if (livro.getCapaUrl() != null && !livro.getCapaUrl().isBlank()) {
+            uploadService.removerArquivo(livro.getCapaUrl());
+        }
+
         livroRepository.delete(livro);
     }
 
@@ -111,6 +115,26 @@ public class LivroService {
             uploadService.removerArquivo(capaAnterior);
         }
 
+        return toResponse(livroSalvo);
+    }
+
+    public LivroResponse removerCapa(Long livroId, Long adminId) {
+        Livro livro = livroRepository.findById(livroId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Livro não encontrado."));
+
+        if (!livro.getAdmin().getId().equals(adminId)) {
+            throw new PermissaoNegadaException("Você não tem permissão para remover a capa deste livro.");
+        }
+
+        String capaAtual = livro.getCapaUrl();
+
+        if (capaAtual != null && !capaAtual.isBlank()) {
+            uploadService.removerArquivo(capaAtual);
+        }
+
+        livro.setCapaUrl(null);
+
+        Livro livroSalvo = livroRepository.save(livro);
         return toResponse(livroSalvo);
     }
 

@@ -74,4 +74,12 @@ public class LivroController {
         Long adminId = usuarioAutenticadoService.buscarId(authentication);
         return livroService.uploadCapa(id, file, adminId);
     }
+
+    @DeleteMapping("/{id}/capa")
+    @PreAuthorize("hasRole('ADMIN')")
+    public LivroResponse removerCapa(@PathVariable Long id,
+                                     Authentication authentication) {
+        Long adminId = usuarioAutenticadoService.buscarId(authentication);
+        return livroService.removerCapa(id, adminId);
+    }
 }
