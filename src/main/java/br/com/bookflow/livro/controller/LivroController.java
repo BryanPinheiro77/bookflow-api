@@ -29,14 +29,32 @@ public class LivroController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'USUARIO')")
-    public List<LivroResponse> listarTodos() {
-        return livroService.listarTodos();
+    public List<LivroResponse> listarTodos(Authentication authentication) {
+        boolean isAdmin = authentication.getAuthorities()
+                .stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        if (isAdmin) {
+            Long adminId = usuarioAutenticadoService.buscarId(authentication);
+            return livroService.listarPorAdmin(adminId);
+        }
+
+        return livroService.listarTodosParaUsuario();
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'USUARIO')")
-    public LivroResponse buscarPorId(@PathVariable Long id) {
-        return livroService.buscarPorId(id);
+    public LivroResponse buscarPorId(@PathVariable Long id, Authentication authentication) {
+        boolean isAdmin = authentication.getAuthorities()
+                .stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        if (isAdmin) {
+            Long adminId = usuarioAutenticadoService.buscarId(authentication);
+            return livroService.buscarPorIdParaAdmin(id, adminId);
+        }
+
+        return livroService.buscarPorIdParaUsuario(id);
     }
 
     @PostMapping

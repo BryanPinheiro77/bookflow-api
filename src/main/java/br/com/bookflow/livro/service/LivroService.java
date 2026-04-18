@@ -49,15 +49,29 @@ public class LivroService {
         return toResponse(salvo);
     }
 
-    public List<LivroResponse> listarTodos() {
+    public List<LivroResponse> listarTodosParaUsuario() {
         return livroRepository.findAll()
                 .stream()
                 .map(this::toResponse)
                 .toList();
     }
 
-    public LivroResponse buscarPorId(Long id) {
+    public List<LivroResponse> listarPorAdmin(Long adminId) {
+        return livroRepository.findByAdminId(adminId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    public LivroResponse buscarPorIdParaUsuario(Long id) {
         Livro livro = livroRepository.findById(id)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Livro não encontrado."));
+
+        return toResponse(livro);
+    }
+
+    public LivroResponse buscarPorIdParaAdmin(Long id, Long adminId) {
+        Livro livro = livroRepository.findByIdAndAdminId(id, adminId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Livro não encontrado."));
 
         return toResponse(livro);
