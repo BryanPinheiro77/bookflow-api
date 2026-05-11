@@ -11,8 +11,6 @@ public record AtualizarLivroRequest(
         String autor,
 
         @NotBlank(message = "A categoria é obrigatória")
-        String categoria,
-
-        String capaUrl
+        String categoria
 ) {
 }

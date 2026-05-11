@@ -88,7 +88,6 @@ public class LivroService {
         livro.setTitulo(request.titulo());
         livro.setAutor(request.autor());
         livro.setCategoria(request.categoria());
-        livro.setCapaUrl(request.capaUrl());
 
         Livro atualizado = livroRepository.save(livro);
         return toResponse(atualizado);

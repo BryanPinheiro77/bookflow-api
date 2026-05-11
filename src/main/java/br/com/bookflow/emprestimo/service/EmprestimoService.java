@@ -154,6 +154,8 @@ public class EmprestimoService {
         return new EmprestimoResponse(
                 e.getId(),
                 e.getUsuario().getId(),
+                e.getUsuario().getNome(),
+                e.getUsuario().getEmail(),
                 e.getLivro().getId(),
                 e.getLivro().getTitulo(),
                 e.getDataEmprestimo(),

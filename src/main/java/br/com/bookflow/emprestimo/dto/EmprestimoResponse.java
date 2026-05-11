@@ -7,6 +7,8 @@ import java.time.LocalDate;
 public record EmprestimoResponse(
         Long id,
         Long usuarioId,
+        String usuarioNome,
+        String usuarioEmail,
         Long livroId,
         String tituloLivro,
         LocalDate dataEmprestimo,

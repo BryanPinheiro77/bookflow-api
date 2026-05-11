@@ -278,8 +278,7 @@ class LivroServiceTest {
         AtualizarLivroRequest request = new AtualizarLivroRequest(
                 "Novo Título",
                 "Novo Autor",
-                "Nova Categoria",
-                "/uploads/capas/nova.jpg"
+                "Nova Categoria"
         );
 
         when(livroRepository.findById(10L)).thenReturn(Optional.of(livro));
@@ -290,7 +289,6 @@ class LivroServiceTest {
         assertEquals("Novo Título", response.titulo());
         assertEquals("Novo Autor", response.autor());
         assertEquals("Nova Categoria", response.categoria());
-        assertEquals("/uploads/capas/nova.jpg", response.capaUrl());
     }
 
     @Test
@@ -312,8 +310,7 @@ class LivroServiceTest {
         AtualizarLivroRequest request = new AtualizarLivroRequest(
                 "Novo Título",
                 "Novo Autor",
-                "Nova Categoria",
-                null
+                "Nova Categoria"
         );
 
         when(livroRepository.findById(10L)).thenReturn(Optional.of(livro));
