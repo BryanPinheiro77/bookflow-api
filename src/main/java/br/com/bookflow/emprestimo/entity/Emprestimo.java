@@ -5,6 +5,7 @@ import br.com.bookflow.usuario.entity.Usuario;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity
@@ -31,8 +32,14 @@ public class Emprestimo {
     @Column(name = "data_emprestimo", nullable = false)
     private LocalDate dataEmprestimo;
 
+    @Column(name ="data_prevista_devolucao", nullable = false)
+    private LocalDate dataPrevistaDevolucao;
+
     @Column(name = "data_devolucao")
     private LocalDate dataDevolucao;
+
+    @Column(nullable = false)
+    private BigDecimal valorEmprestimo;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

@@ -54,23 +54,21 @@ public class EmprestimoService {
                 .orElseThrow(() ->
                         new RecursoNaoEncontradoException("Livro não encontrado."));
 
-        if (livro.getStatus() != LivroStatus.DISPONIVEL) {
-            throw new RegraDeNegocioException("O livro não está disponível para empréstimo.");
-        }
-
-        if (emprestimoRepository.existsByLivroIdAndStatus(
-                livro.getId(), EmprestimoStatus.ATIVO)) {
-            throw new RegraDeNegocioException("Já existe um empréstimo ativo para este livro.");
+        if (livro.getQuantidadeDisponivel() <= 0) {
+            throw new RegraDeNegocioException("Não há exemplares disponíveis para este livro.");
         }
 
         Emprestimo emprestimo = Emprestimo.builder()
                 .usuario(usuario)
                 .livro(livro)
                 .dataEmprestimo(LocalDate.now())
+                .dataPrevistaDevolucao(LocalDate.now().plusDays(30))
+                .valorEmprestimo(livro.getValorEmprestimo())
                 .status(EmprestimoStatus.ATIVO)
                 .build();
 
-        livro.setStatus(LivroStatus.EMPRESTADO);
+        livro.setQuantidadeDisponivel(livro.getQuantidadeDisponivel() - 1);
+        atualizarStatusLivro(livro);
 
         Emprestimo salvo = emprestimoRepository.save(emprestimo);
         livroRepository.save(livro);
@@ -99,7 +97,8 @@ public class EmprestimoService {
         emprestimo.setDataDevolucao(LocalDate.now());
 
         Livro livro = emprestimo.getLivro();
-        livro.setStatus(LivroStatus.DISPONIVEL);
+        livro.setQuantidadeDisponivel(livro.getQuantidadeDisponivel() + 1);
+        atualizarStatusLivro(livro);
 
         Emprestimo salvo = emprestimoRepository.save(emprestimo);
         livroRepository.save(livro);
@@ -148,6 +147,14 @@ public class EmprestimoService {
         }
 
         interesseLivroRepository.deleteByLivroId(livro.getId());
+    }
+
+    private void atualizarStatusLivro(Livro livro) {
+        if (livro.getQuantidadeDisponivel() == 0) {
+            livro.setStatus(LivroStatus.INDISPONIVEL);
+        } else {
+            livro.setStatus(LivroStatus.DISPONIVEL);
+        }
     }
 
     private EmprestimoResponse toResponse(Emprestimo e) {
