@@ -54,6 +54,31 @@ public class EmprestimoService {
                 .orElseThrow(() ->
                         new RecursoNaoEncontradoException("Livro não encontrado."));
 
+        if (emprestimoRepository
+                .existsByUsuarioIdAndLivroTituloAndStatus(
+                        usuarioId,
+                        livro.getTitulo(),
+                        EmprestimoStatus.ATIVO
+                )) {
+
+            throw new RegraDeNegocioException(
+                    "Você já possui este livro emprestado."
+            );
+        }
+
+        long emprestimosAtivos = emprestimoRepository
+                .countByUsuarioIdAndLivroAdminIdAndStatus(
+                        usuario.getId(),
+                        livro.getAdmin().getId(),
+                        EmprestimoStatus.ATIVO
+                );
+
+        if (emprestimosAtivos >= 3) {
+            throw new RegraDeNegocioException(
+                    "Você atingiu o limite de empréstimos desta biblioteca."
+            );
+        }
+
         if (livro.getQuantidadeDisponivel() <= 0) {
             throw new RegraDeNegocioException("Não há exemplares disponíveis para este livro.");
         }
@@ -166,7 +191,9 @@ public class EmprestimoService {
                 e.getLivro().getId(),
                 e.getLivro().getTitulo(),
                 e.getDataEmprestimo(),
+                e.getDataPrevistaDevolucao(),
                 e.getDataDevolucao(),
+                e.getValorEmprestimo(),
                 e.getStatus()
         );
     }
