@@ -20,6 +20,9 @@ public record EmprestimoResponse(
         LocalDate dataPrevistaDevolucao,
         LocalDate dataDevolucao,
 
+        Long diasAtraso,
+        BigDecimal multaAtual,
+
         BigDecimal valorEmprestimo,
 
         EmprestimoStatus status

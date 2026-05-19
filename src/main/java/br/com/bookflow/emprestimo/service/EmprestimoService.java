@@ -18,6 +18,8 @@ import br.com.bookflow.usuario.entity.Usuario;
 import br.com.bookflow.usuario.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.math.BigDecimal;
+import java.time.temporal.ChronoUnit;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -182,6 +184,38 @@ public class EmprestimoService {
         }
     }
 
+    private long calcularDiasAtraso(Emprestimo emprestimo) {
+
+        LocalDate dataReferencia =
+                emprestimo.getDataDevolucao() != null
+                        ? emprestimo.getDataDevolucao()
+                        : LocalDate.now();
+
+        if (!dataReferencia.isAfter(
+                emprestimo.getDataPrevistaDevolucao()
+        )) {
+            return 0;
+        }
+
+        return ChronoUnit.DAYS.between(
+                emprestimo.getDataPrevistaDevolucao(),
+                dataReferencia
+        );
+    }
+
+    private BigDecimal calcularMulta(Emprestimo emprestimo) {
+
+        long diasAtraso = calcularDiasAtraso(emprestimo);
+
+        if (diasAtraso == 0) {
+            return BigDecimal.ZERO;
+        }
+
+        return emprestimo.getLivro()
+                .getValorMultaDiaria()
+                .multiply(BigDecimal.valueOf(diasAtraso));
+    }
+
     private EmprestimoResponse toResponse(Emprestimo e) {
         return new EmprestimoResponse(
                 e.getId(),
@@ -193,6 +227,8 @@ public class EmprestimoService {
                 e.getDataEmprestimo(),
                 e.getDataPrevistaDevolucao(),
                 e.getDataDevolucao(),
+                calcularDiasAtraso(e),
+                calcularMulta(e),
                 e.getValorEmprestimo(),
                 e.getStatus()
         );

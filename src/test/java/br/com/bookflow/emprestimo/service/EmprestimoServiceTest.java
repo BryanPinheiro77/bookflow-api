@@ -23,6 +23,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -55,50 +56,89 @@ class EmprestimoServiceTest {
 
     @Test
     void deveCriarEmprestimoComSucesso() {
+
         Long usuarioId = 1L;
         Long livroId = 2L;
 
         Usuario usuario = Usuario.builder()
                 .id(usuarioId)
                 .nome("Bryan")
+                .email("bryan@email.com")
                 .role(Role.USUARIO)
                 .build();
-        Usuario admin = Usuario.builder().id(10L).role(Role.ADMIN).build();
+
+        Usuario admin = Usuario.builder()
+                .id(10L)
+                .role(Role.ADMIN)
+                .build();
 
         Livro livro = Livro.builder()
                 .id(livroId)
-                .titulo("Dom Casmurro")
+                .titulo("Clean Code")
+                .quantidadeTotal(10)
+                .quantidadeDisponivel(5)
+                .valorEmprestimo(new BigDecimal("12.90"))
+                .valorMultaDiaria(new BigDecimal("1.50"))
                 .status(LivroStatus.DISPONIVEL)
                 .admin(admin)
                 .build();
 
-        CriarEmprestimoRequest request = new CriarEmprestimoRequest(livroId);
+        CriarEmprestimoRequest request =
+                new CriarEmprestimoRequest(livroId);
 
-        Emprestimo emprestimoSalvo = Emprestimo.builder()
-                .id(100L)
-                .usuario(usuario)
-                .livro(livro)
-                .dataEmprestimo(LocalDate.now())
-                .status(EmprestimoStatus.ATIVO)
-                .build();
+        when(usuarioRepository.findById(usuarioId))
+                .thenReturn(Optional.of(usuario));
 
-        when(usuarioRepository.findById(usuarioId)).thenReturn(Optional.of(usuario));
-        when(livroRepository.findById(livroId)).thenReturn(Optional.of(livro));
-        when(emprestimoRepository.existsByLivroIdAndStatus(livroId, EmprestimoStatus.ATIVO)).thenReturn(false);
-        when(emprestimoRepository.save(any(Emprestimo.class))).thenReturn(emprestimoSalvo);
+        when(livroRepository.findById(livroId))
+                .thenReturn(Optional.of(livro));
 
-        EmprestimoResponse response = emprestimoService.criar(request, usuarioId);
+        when(emprestimoRepository
+                .existsByUsuarioIdAndLivroTituloAndStatus(
+                        anyLong(),
+                        anyString(),
+                        any()
+                ))
+                .thenReturn(false);
+
+        when(emprestimoRepository
+                .countByUsuarioIdAndLivroAdminIdAndStatus(
+                        anyLong(),
+                        anyLong(),
+                        any()
+                ))
+                .thenReturn(0L);
+
+        when(emprestimoRepository.save(any(Emprestimo.class)))
+                .thenAnswer(invocation -> {
+
+                    Emprestimo e = invocation.getArgument(0);
+                    e.setId(100L);
+
+                    return e;
+                });
+
+        EmprestimoResponse response =
+                emprestimoService.criar(request, usuarioId);
 
         assertNotNull(response);
+
         assertEquals(100L, response.id());
         assertEquals(EmprestimoStatus.ATIVO, response.status());
-        assertEquals("Dom Casmurro", response.tituloLivro());
-        assertEquals(LivroStatus.EMPRESTADO, livro.getStatus());
+
+        assertEquals(
+                "Clean Code",
+                response.tituloLivro()
+        );
+
+        assertEquals(
+                4,
+                livro.getQuantidadeDisponivel()
+        );
 
         verify(notificacaoService).criarNotificacao(
                 eq(admin),
                 eq("Novo empréstimo realizado"),
-                eq("O livro \"Dom Casmurro\" foi emprestado para Bryan.")
+                eq("O livro \"Clean Code\" foi emprestado para Bryan.")
         );
 
         verify(livroRepository).save(livro);
@@ -106,96 +146,230 @@ class EmprestimoServiceTest {
 
     @Test
     void deveLancarExcecaoQuandoUsuarioNaoExistirAoCriarEmprestimo() {
-        CriarEmprestimoRequest request = new CriarEmprestimoRequest(2L);
 
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.empty());
+        CriarEmprestimoRequest request =
+                new CriarEmprestimoRequest(2L);
 
-        RecursoNaoEncontradoException exception = assertThrows(
-                RecursoNaoEncontradoException.class,
-                () -> emprestimoService.criar(request, 1L)
+        when(usuarioRepository.findById(1L))
+                .thenReturn(Optional.empty());
+
+        RecursoNaoEncontradoException exception =
+                assertThrows(
+                        RecursoNaoEncontradoException.class,
+                        () -> emprestimoService.criar(request, 1L)
+                );
+
+        assertEquals(
+                "Usuário não encontrado.",
+                exception.getMessage()
         );
-
-        assertEquals("Usuário não encontrado.", exception.getMessage());
     }
 
     @Test
     void deveLancarExcecaoQuandoLivroNaoExistirAoCriarEmprestimo() {
-        Usuario usuario = Usuario.builder().id(1L).role(Role.USUARIO).build();
-        CriarEmprestimoRequest request = new CriarEmprestimoRequest(2L);
 
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
-        when(livroRepository.findById(2L)).thenReturn(Optional.empty());
+        Usuario usuario = Usuario.builder()
+                .id(1L)
+                .role(Role.USUARIO)
+                .build();
 
-        RecursoNaoEncontradoException exception = assertThrows(
-                RecursoNaoEncontradoException.class,
-                () -> emprestimoService.criar(request, 1L)
+        CriarEmprestimoRequest request =
+                new CriarEmprestimoRequest(2L);
+
+        when(usuarioRepository.findById(1L))
+                .thenReturn(Optional.of(usuario));
+
+        when(livroRepository.findById(2L))
+                .thenReturn(Optional.empty());
+
+        RecursoNaoEncontradoException exception =
+                assertThrows(
+                        RecursoNaoEncontradoException.class,
+                        () -> emprestimoService.criar(request, 1L)
+                );
+
+        assertEquals(
+                "Livro não encontrado.",
+                exception.getMessage()
         );
-
-        assertEquals("Livro não encontrado.", exception.getMessage());
     }
 
     @Test
-    void deveLancarExcecaoQuandoLivroNaoEstiverDisponivel() {
-        Usuario usuario = Usuario.builder().id(1L).role(Role.USUARIO).build();
-        Usuario admin = Usuario.builder().id(10L).role(Role.ADMIN).build();
+    void deveLancarExcecaoQuandoNaoHouverQuantidadeDisponivel() {
+
+        Usuario usuario = Usuario.builder()
+                .id(1L)
+                .role(Role.USUARIO)
+                .build();
+
+        Usuario admin = Usuario.builder()
+                .id(10L)
+                .role(Role.ADMIN)
+                .build();
 
         Livro livro = Livro.builder()
                 .id(2L)
                 .titulo("Livro")
-                .status(LivroStatus.EMPRESTADO)
+                .quantidadeTotal(5)
+                .quantidadeDisponivel(0)
+                .status(LivroStatus.INDISPONIVEL)
                 .admin(admin)
                 .build();
 
-        CriarEmprestimoRequest request = new CriarEmprestimoRequest(2L);
+        CriarEmprestimoRequest request =
+                new CriarEmprestimoRequest(2L);
 
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
-        when(livroRepository.findById(2L)).thenReturn(Optional.of(livro));
+        when(usuarioRepository.findById(1L))
+                .thenReturn(Optional.of(usuario));
 
-        RegraDeNegocioException exception = assertThrows(
-                RegraDeNegocioException.class,
-                () -> emprestimoService.criar(request, 1L)
+        when(livroRepository.findById(2L))
+                .thenReturn(Optional.of(livro));
+
+        RegraDeNegocioException exception =
+                assertThrows(
+                        RegraDeNegocioException.class,
+                        () -> emprestimoService.criar(request, 1L)
+                );
+
+        assertEquals(
+                "Não há exemplares disponíveis para este livro.",
+                exception.getMessage()
         );
-
-        assertEquals("O livro não está disponível para empréstimo.", exception.getMessage());
     }
 
     @Test
-    void deveLancarExcecaoQuandoJaExistirEmprestimoAtivoParaLivro() {
-        Usuario usuario = Usuario.builder().id(1L).role(Role.USUARIO).build();
-        Usuario admin = Usuario.builder().id(10L).role(Role.ADMIN).build();
+    void deveImpedirEmprestimoDeMesmoLivro() {
+
+        Long usuarioId = 1L;
+        Long livroId = 2L;
+
+        Usuario usuario = Usuario.builder()
+                .id(usuarioId)
+                .role(Role.USUARIO)
+                .build();
+
+        Usuario admin = Usuario.builder()
+                .id(10L)
+                .role(Role.ADMIN)
+                .build();
 
         Livro livro = Livro.builder()
-                .id(2L)
-                .titulo("Livro")
-                .status(LivroStatus.DISPONIVEL)
+                .id(livroId)
+                .titulo("Clean Code")
+                .quantidadeDisponivel(5)
                 .admin(admin)
                 .build();
 
-        CriarEmprestimoRequest request = new CriarEmprestimoRequest(2L);
+        when(usuarioRepository.findById(usuarioId))
+                .thenReturn(Optional.of(usuario));
 
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
-        when(livroRepository.findById(2L)).thenReturn(Optional.of(livro));
-        when(emprestimoRepository.existsByLivroIdAndStatus(2L, EmprestimoStatus.ATIVO)).thenReturn(true);
+        when(livroRepository.findById(livroId))
+                .thenReturn(Optional.of(livro));
 
-        RegraDeNegocioException exception = assertThrows(
-                RegraDeNegocioException.class,
-                () -> emprestimoService.criar(request, 1L)
+        when(emprestimoRepository
+                .existsByUsuarioIdAndLivroTituloAndStatus(
+                        usuarioId,
+                        "Clean Code",
+                        EmprestimoStatus.ATIVO
+                ))
+                .thenReturn(true);
+
+        RegraDeNegocioException exception =
+                assertThrows(
+                        RegraDeNegocioException.class,
+                        () -> emprestimoService.criar(
+                                new CriarEmprestimoRequest(livroId),
+                                usuarioId
+                        )
+                );
+
+        assertEquals(
+                "Você já possui este livro emprestado.",
+                exception.getMessage()
         );
+    }
 
-        assertEquals("Já existe um empréstimo ativo para este livro.", exception.getMessage());
+    @Test
+    void deveImpedirMaisDeTresEmprestimosNaMesmaBiblioteca() {
+
+        Long usuarioId = 1L;
+        Long livroId = 2L;
+
+        Usuario usuario = Usuario.builder()
+                .id(usuarioId)
+                .role(Role.USUARIO)
+                .build();
+
+        Usuario admin = Usuario.builder()
+                .id(10L)
+                .role(Role.ADMIN)
+                .build();
+
+        Livro livro = Livro.builder()
+                .id(livroId)
+                .titulo("Livro")
+                .quantidadeDisponivel(5)
+                .admin(admin)
+                .build();
+
+        when(usuarioRepository.findById(usuarioId))
+                .thenReturn(Optional.of(usuario));
+
+        when(livroRepository.findById(livroId))
+                .thenReturn(Optional.of(livro));
+
+        when(emprestimoRepository
+                .existsByUsuarioIdAndLivroTituloAndStatus(
+                        anyLong(),
+                        anyString(),
+                        any()
+                ))
+                .thenReturn(false);
+
+        when(emprestimoRepository
+                .countByUsuarioIdAndLivroAdminIdAndStatus(
+                        usuarioId,
+                        admin.getId(),
+                        EmprestimoStatus.ATIVO
+                ))
+                .thenReturn(3L);
+
+        RegraDeNegocioException exception =
+                assertThrows(
+                        RegraDeNegocioException.class,
+                        () -> emprestimoService.criar(
+                                new CriarEmprestimoRequest(livroId),
+                                usuarioId
+                        )
+                );
+
+        assertEquals(
+                "Você atingiu o limite de empréstimos desta biblioteca.",
+                exception.getMessage()
+        );
     }
 
     @Test
     void deveDevolverEmprestimoComSucessoSemInteressados() {
+
         Long adminId = 10L;
 
-        Usuario admin = Usuario.builder().id(adminId).role(Role.ADMIN).build();
-        Usuario usuario = Usuario.builder().id(1L).role(Role.USUARIO).build();
+        Usuario admin = Usuario.builder()
+                .id(adminId)
+                .role(Role.ADMIN)
+                .build();
+
+        Usuario usuario = Usuario.builder()
+                .id(1L)
+                .role(Role.USUARIO)
+                .build();
 
         Livro livro = Livro.builder()
                 .id(2L)
                 .titulo("Livro")
-                .status(LivroStatus.EMPRESTADO)
+                .quantidadeTotal(5)
+                .quantidadeDisponivel(0)
+                .status(LivroStatus.INDISPONIVEL)
                 .admin(admin)
                 .build();
 
@@ -204,104 +378,113 @@ class EmprestimoServiceTest {
                 .usuario(usuario)
                 .livro(livro)
                 .dataEmprestimo(LocalDate.now().minusDays(3))
+                .dataPrevistaDevolucao(LocalDate.now().plusDays(27))
                 .status(EmprestimoStatus.ATIVO)
                 .build();
 
-        when(emprestimoRepository.findById(100L)).thenReturn(Optional.of(emprestimo));
-        when(emprestimoRepository.save(any(Emprestimo.class))).thenReturn(emprestimo);
-        when(interesseLivroRepository.findByLivroIdOrderByDataInteresseAsc(livro.getId()))
+        when(emprestimoRepository.findById(100L))
+                .thenReturn(Optional.of(emprestimo));
+
+        when(emprestimoRepository.save(any(Emprestimo.class)))
+                .thenReturn(emprestimo);
+
+        when(interesseLivroRepository
+                .findByLivroIdOrderByDataInteresseAsc(
+                        livro.getId()
+                ))
                 .thenReturn(List.of());
 
-        EmprestimoResponse response = emprestimoService.devolver(100L, adminId);
+        EmprestimoResponse response =
+                emprestimoService.devolver(100L, adminId);
 
-        assertEquals(EmprestimoStatus.FINALIZADO, response.status());
-        assertEquals(LivroStatus.DISPONIVEL, livro.getStatus());
+        assertEquals(
+                EmprestimoStatus.FINALIZADO,
+                response.status()
+        );
+
+        assertEquals(
+                LivroStatus.DISPONIVEL,
+                livro.getStatus()
+        );
+
+        assertEquals(
+                1,
+                livro.getQuantidadeDisponivel()
+        );
+
         assertNotNull(response.dataDevolucao());
 
         verify(livroRepository).save(livro);
-        verify(interesseLivroRepository).findByLivroIdOrderByDataInteresseAsc(livro.getId());
-        verify(notificacaoService, never()).criarNotificacao(any(), anyString(), anyString());
-        verify(interesseLivroRepository, never()).deleteByLivroId(anyLong());
+
+        verify(notificacaoService, never())
+                .criarNotificacao(any(), anyString(), anyString());
     }
 
     @Test
-    void deveDevolverEmprestimoComSucessoENotificarInteressados() {
-        Long adminId = 10L;
+    void deveCalcularMultaCorretamente() {
 
-        Usuario admin = Usuario.builder().id(adminId).role(Role.ADMIN).build();
-        Usuario usuarioDoEmprestimo = Usuario.builder().id(1L).role(Role.USUARIO).build();
-        Usuario interessado1 = Usuario.builder().id(2L).role(Role.USUARIO).build();
-        Usuario interessado2 = Usuario.builder().id(3L).role(Role.USUARIO).build();
+        Usuario admin = Usuario.builder()
+                .id(10L)
+                .role(Role.ADMIN)
+                .build();
+
+        Usuario usuario = Usuario.builder()
+                .id(1L)
+                .role(Role.USUARIO)
+                .build();
 
         Livro livro = Livro.builder()
                 .id(2L)
-                .titulo("Clean Code")
-                .status(LivroStatus.EMPRESTADO)
+                .titulo("Livro")
+                .valorMultaDiaria(new BigDecimal("2.00"))
                 .admin(admin)
                 .build();
 
         Emprestimo emprestimo = Emprestimo.builder()
                 .id(100L)
-                .usuario(usuarioDoEmprestimo)
+                .usuario(usuario)
                 .livro(livro)
-                .dataEmprestimo(LocalDate.now().minusDays(3))
+                .dataEmprestimo(LocalDate.now().minusDays(40))
+                .dataPrevistaDevolucao(LocalDate.now().minusDays(10))
                 .status(EmprestimoStatus.ATIVO)
                 .build();
 
-        InteresseLivro interesse1 = InteresseLivro.builder()
-                .id(1L)
-                .usuario(interessado1)
-                .livro(livro)
-                .dataInteresse(LocalDateTime.now().minusDays(2))
-                .build();
+        when(emprestimoRepository.findByUsuarioId(1L))
+                .thenReturn(List.of(emprestimo));
 
-        InteresseLivro interesse2 = InteresseLivro.builder()
-                .id(2L)
-                .usuario(interessado2)
-                .livro(livro)
-                .dataInteresse(LocalDateTime.now().minusDays(1))
-                .build();
+        List<EmprestimoResponse> response =
+                emprestimoService.listarPorUsuario(1L);
 
-        when(emprestimoRepository.findById(100L)).thenReturn(Optional.of(emprestimo));
-        when(emprestimoRepository.save(any(Emprestimo.class))).thenReturn(emprestimo);
-        when(interesseLivroRepository.findByLivroIdOrderByDataInteresseAsc(livro.getId()))
-                .thenReturn(List.of(interesse1, interesse2));
-
-        EmprestimoResponse response = emprestimoService.devolver(100L, adminId);
-
-        assertEquals(EmprestimoStatus.FINALIZADO, response.status());
-        assertEquals(LivroStatus.DISPONIVEL, livro.getStatus());
-        assertNotNull(response.dataDevolucao());
-
-        verify(livroRepository).save(livro);
-        verify(interesseLivroRepository).findByLivroIdOrderByDataInteresseAsc(livro.getId());
-
-        verify(notificacaoService).criarNotificacao(
-                eq(interessado1),
-                eq("Livro disponível novamente"),
-                eq("O livro \"Clean Code\" está disponível para empréstimo novamente.")
-        );
-        verify(notificacaoService).criarNotificacao(
-                eq(interessado2),
-                eq("Livro disponível novamente"),
-                eq("O livro \"Clean Code\" está disponível para empréstimo novamente.")
+        assertEquals(
+                10,
+                response.get(0).diasAtraso()
         );
 
-        verify(interesseLivroRepository).deleteByLivroId(livro.getId());
+        assertEquals(
+                new BigDecimal("20.00"),
+                response.get(0).multaAtual()
+        );
     }
 
     @Test
     void deveLancarExcecaoAoDevolverEmprestimoDeOutroAdmin() {
+
         Long adminLogadoId = 10L;
         Long adminDonoLivroId = 20L;
 
-        Usuario adminDono = Usuario.builder().id(adminDonoLivroId).role(Role.ADMIN).build();
-        Usuario usuario = Usuario.builder().id(1L).role(Role.USUARIO).build();
+        Usuario adminDono = Usuario.builder()
+                .id(adminDonoLivroId)
+                .role(Role.ADMIN)
+                .build();
+
+        Usuario usuario = Usuario.builder()
+                .id(1L)
+                .role(Role.USUARIO)
+                .build();
 
         Livro livro = Livro.builder()
                 .id(2L)
                 .titulo("Livro")
-                .status(LivroStatus.EMPRESTADO)
                 .admin(adminDono)
                 .build();
 
@@ -312,104 +495,21 @@ class EmprestimoServiceTest {
                 .status(EmprestimoStatus.ATIVO)
                 .build();
 
-        when(emprestimoRepository.findById(100L)).thenReturn(Optional.of(emprestimo));
+        when(emprestimoRepository.findById(100L))
+                .thenReturn(Optional.of(emprestimo));
 
-        PermissaoNegadaException exception = assertThrows(
-                PermissaoNegadaException.class,
-                () -> emprestimoService.devolver(100L, adminLogadoId)
+        PermissaoNegadaException exception =
+                assertThrows(
+                        PermissaoNegadaException.class,
+                        () -> emprestimoService.devolver(
+                                100L,
+                                adminLogadoId
+                        )
+                );
+
+        assertEquals(
+                "Você não tem permissão para devolver este empréstimo.",
+                exception.getMessage()
         );
-
-        assertEquals("Você não tem permissão para devolver este empréstimo.", exception.getMessage());
-        verify(emprestimoRepository, never()).save(any());
-        verify(livroRepository, never()).save(any());
-        verify(interesseLivroRepository, never()).findByLivroIdOrderByDataInteresseAsc(anyLong());
-        verify(notificacaoService, never()).criarNotificacao(any(), anyString(), anyString());
-    }
-
-    @Test
-    void deveLancarExcecaoQuandoEmprestimoJaEstiverFinalizado() {
-        Long adminId = 10L;
-
-        Usuario admin = Usuario.builder().id(adminId).role(Role.ADMIN).build();
-        Usuario usuario = Usuario.builder().id(1L).role(Role.USUARIO).build();
-
-        Livro livro = Livro.builder()
-                .id(2L)
-                .titulo("Livro")
-                .status(LivroStatus.DISPONIVEL)
-                .admin(admin)
-                .build();
-
-        Emprestimo emprestimo = Emprestimo.builder()
-                .id(100L)
-                .usuario(usuario)
-                .livro(livro)
-                .status(EmprestimoStatus.FINALIZADO)
-                .build();
-
-        when(emprestimoRepository.findById(100L)).thenReturn(Optional.of(emprestimo));
-
-        RegraDeNegocioException exception = assertThrows(
-                RegraDeNegocioException.class,
-                () -> emprestimoService.devolver(100L, adminId)
-        );
-
-        assertEquals("Este empréstimo já foi finalizado.", exception.getMessage());
-        verify(interesseLivroRepository, never()).findByLivroIdOrderByDataInteresseAsc(anyLong());
-        verify(notificacaoService, never()).criarNotificacao(any(), anyString(), anyString());
-    }
-
-    @Test
-    void deveListarEmprestimosPorUsuario() {
-        Usuario admin = Usuario.builder().id(10L).role(Role.ADMIN).build();
-        Usuario usuario = Usuario.builder().id(1L).role(Role.USUARIO).build();
-
-        Livro livro = Livro.builder()
-                .id(2L)
-                .titulo("Livro")
-                .admin(admin)
-                .build();
-
-        Emprestimo emprestimo = Emprestimo.builder()
-                .id(100L)
-                .usuario(usuario)
-                .livro(livro)
-                .dataEmprestimo(LocalDate.now())
-                .status(EmprestimoStatus.ATIVO)
-                .build();
-
-        when(emprestimoRepository.findByUsuarioId(1L)).thenReturn(List.of(emprestimo));
-
-        List<EmprestimoResponse> response = emprestimoService.listarPorUsuario(1L);
-
-        assertEquals(1, response.size());
-        assertEquals(100L, response.get(0).id());
-    }
-
-    @Test
-    void deveListarEmprestimosPorAdmin() {
-        Usuario admin = Usuario.builder().id(10L).role(Role.ADMIN).build();
-        Usuario usuario = Usuario.builder().id(1L).role(Role.USUARIO).build();
-
-        Livro livro = Livro.builder()
-                .id(2L)
-                .titulo("Livro")
-                .admin(admin)
-                .build();
-
-        Emprestimo emprestimo = Emprestimo.builder()
-                .id(100L)
-                .usuario(usuario)
-                .livro(livro)
-                .dataEmprestimo(LocalDate.now())
-                .status(EmprestimoStatus.ATIVO)
-                .build();
-
-        when(emprestimoRepository.findByLivroAdminId(10L)).thenReturn(List.of(emprestimo));
-
-        List<EmprestimoResponse> response = emprestimoService.listarPorAdmin(10L);
-
-        assertEquals(1, response.size());
-        assertEquals(100L, response.get(0).id());
     }
 }

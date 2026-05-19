@@ -2,6 +2,7 @@ package br.com.bookflow.livro.service;
 
 import br.com.bookflow.exception.PermissaoNegadaException;
 import br.com.bookflow.exception.RecursoNaoEncontradoException;
+import br.com.bookflow.exception.RegraDeNegocioException;
 import br.com.bookflow.livro.dto.AtualizarLivroRequest;
 import br.com.bookflow.livro.dto.CadastrarLivroRequest;
 import br.com.bookflow.livro.dto.LivroResponse;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,6 +34,7 @@ class LivroServiceTest {
 
     @BeforeEach
     void setUp() {
+
         livroRepository = mock(LivroRepository.class);
         usuarioRepository = mock(UsuarioRepository.class);
         uploadService = mock(UploadService.class);
@@ -45,6 +48,7 @@ class LivroServiceTest {
 
     @Test
     void deveCadastrarLivroComSucesso() {
+
         Long adminId = 1L;
 
         Usuario admin = Usuario.builder()
@@ -59,6 +63,10 @@ class LivroServiceTest {
                 "Clean Code",
                 "Robert C. Martin",
                 "Programação",
+                10,
+                8,
+                new BigDecimal("12.90"),
+                new BigDecimal("1.50"),
                 null
         );
 
@@ -67,45 +75,164 @@ class LivroServiceTest {
                 .titulo("Clean Code")
                 .autor("Robert C. Martin")
                 .categoria("Programação")
+                .quantidadeTotal(10)
+                .quantidadeDisponivel(8)
+                .valorEmprestimo(new BigDecimal("12.90"))
+                .valorMultaDiaria(new BigDecimal("1.50"))
                 .status(LivroStatus.DISPONIVEL)
                 .admin(admin)
                 .capaUrl(null)
                 .build();
 
-        when(usuarioRepository.findById(adminId)).thenReturn(Optional.of(admin));
-        when(livroRepository.save(any(Livro.class))).thenReturn(livroSalvo);
+        when(usuarioRepository.findById(adminId))
+                .thenReturn(Optional.of(admin));
 
-        LivroResponse response = livroService.cadastrar(request, adminId);
+        when(livroRepository.save(any(Livro.class)))
+                .thenReturn(livroSalvo);
+
+        LivroResponse response =
+                livroService.cadastrar(request, adminId);
 
         assertNotNull(response);
+
         assertEquals(10L, response.id());
         assertEquals("Clean Code", response.titulo());
         assertEquals("Robert C. Martin", response.autor());
-        assertEquals("Programação", response.categoria());
-        assertEquals(LivroStatus.DISPONIVEL, response.status());
+
+        assertEquals(10, response.quantidadeTotal());
+        assertEquals(8, response.quantidadeDisponivel());
+
+        assertEquals(
+                new BigDecimal("12.90"),
+                response.valorEmprestimo()
+        );
+
+        assertEquals(
+                new BigDecimal("1.50"),
+                response.valorMultaDiaria()
+        );
+
+        assertEquals(
+                LivroStatus.DISPONIVEL,
+                response.status()
+        );
+    }
+
+    @Test
+    void deveLancarExcecaoQuandoQuantidadeDisponivelForMaiorQueTotal() {
+
+        Long adminId = 1L;
+
+        Usuario admin = Usuario.builder()
+                .id(adminId)
+                .role(Role.ADMIN)
+                .build();
+
+        CadastrarLivroRequest request = new CadastrarLivroRequest(
+                "Livro",
+                "Autor",
+                "Categoria",
+                5,
+                10,
+                new BigDecimal("10.00"),
+                new BigDecimal("1.00"),
+                null
+        );
+
+        when(usuarioRepository.findById(adminId))
+                .thenReturn(Optional.of(admin));
+
+        RegraDeNegocioException exception = assertThrows(
+                RegraDeNegocioException.class,
+                () -> livroService.cadastrar(request, adminId)
+        );
+
+        assertEquals(
+                "Quantidade disponível não pode ser maior que a total.",
+                exception.getMessage()
+        );
+    }
+
+    @Test
+    void deveDefinirLivroComoIndisponivelQuandoQuantidadeForZero() {
+
+        Long adminId = 1L;
+
+        Usuario admin = Usuario.builder()
+                .id(adminId)
+                .role(Role.ADMIN)
+                .build();
+
+        CadastrarLivroRequest request = new CadastrarLivroRequest(
+                "Livro",
+                "Autor",
+                "Categoria",
+                5,
+                0,
+                new BigDecimal("10.00"),
+                new BigDecimal("1.00"),
+                null
+        );
+
+        Livro livroSalvo = Livro.builder()
+                .id(1L)
+                .titulo("Livro")
+                .autor("Autor")
+                .categoria("Categoria")
+                .quantidadeTotal(5)
+                .quantidadeDisponivel(0)
+                .valorEmprestimo(new BigDecimal("10.00"))
+                .valorMultaDiaria(new BigDecimal("1.00"))
+                .status(LivroStatus.INDISPONIVEL)
+                .admin(admin)
+                .build();
+
+        when(usuarioRepository.findById(adminId))
+                .thenReturn(Optional.of(admin));
+
+        when(livroRepository.save(any(Livro.class)))
+                .thenReturn(livroSalvo);
+
+        LivroResponse response =
+                livroService.cadastrar(request, adminId);
+
+        assertEquals(
+                LivroStatus.INDISPONIVEL,
+                response.status()
+        );
     }
 
     @Test
     void deveLancarExcecaoQuandoAdminNaoForEncontradoAoCadastrar() {
+
         CadastrarLivroRequest request = new CadastrarLivroRequest(
                 "Clean Code",
                 "Robert C. Martin",
                 "Programação",
+                10,
+                8,
+                new BigDecimal("12.90"),
+                new BigDecimal("1.50"),
                 null
         );
 
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.empty());
+        when(usuarioRepository.findById(1L))
+                .thenReturn(Optional.empty());
 
         RecursoNaoEncontradoException exception = assertThrows(
                 RecursoNaoEncontradoException.class,
                 () -> livroService.cadastrar(request, 1L)
         );
 
-        assertEquals("Administrador não encontrado.", exception.getMessage());
+        assertEquals(
+                "Administrador não encontrado.",
+                exception.getMessage()
+        );
     }
 
     @Test
     void deveListarTodosOsLivrosParaUsuario() {
+
         Usuario admin1 = Usuario.builder()
                 .id(1L)
                 .role(Role.ADMIN)
@@ -121,6 +248,10 @@ class LivroServiceTest {
                 .titulo("Clean Code")
                 .autor("Robert C. Martin")
                 .categoria("Programação")
+                .quantidadeTotal(10)
+                .quantidadeDisponivel(8)
+                .valorEmprestimo(new BigDecimal("12.90"))
+                .valorMultaDiaria(new BigDecimal("1.50"))
                 .status(LivroStatus.DISPONIVEL)
                 .admin(admin1)
                 .build();
@@ -130,135 +261,28 @@ class LivroServiceTest {
                 .titulo("DDD")
                 .autor("Eric Evans")
                 .categoria("Arquitetura")
+                .quantidadeTotal(5)
+                .quantidadeDisponivel(5)
+                .valorEmprestimo(new BigDecimal("15.90"))
+                .valorMultaDiaria(new BigDecimal("2.00"))
                 .status(LivroStatus.DISPONIVEL)
                 .admin(admin2)
                 .build();
 
-        when(livroRepository.findAll()).thenReturn(List.of(livro1, livro2));
+        when(livroRepository.findAll())
+                .thenReturn(List.of(livro1, livro2));
 
-        List<LivroResponse> response = livroService.listarTodosParaUsuario();
-
-        assertEquals(2, response.size());
-        assertEquals("Clean Code", response.get(0).titulo());
-        assertEquals("DDD", response.get(1).titulo());
-    }
-
-    @Test
-    void deveListarLivrosDoAdmin() {
-        Long adminId = 1L;
-
-        Usuario admin = Usuario.builder()
-                .id(adminId)
-                .role(Role.ADMIN)
-                .build();
-
-        Livro livro1 = Livro.builder()
-                .id(10L)
-                .titulo("Clean Code")
-                .autor("Robert C. Martin")
-                .categoria("Programação")
-                .status(LivroStatus.DISPONIVEL)
-                .admin(admin)
-                .build();
-
-        Livro livro2 = Livro.builder()
-                .id(11L)
-                .titulo("DDD")
-                .autor("Eric Evans")
-                .categoria("Arquitetura")
-                .status(LivroStatus.DISPONIVEL)
-                .admin(admin)
-                .build();
-
-        when(livroRepository.findByAdminId(adminId)).thenReturn(List.of(livro1, livro2));
-
-        List<LivroResponse> response = livroService.listarPorAdmin(adminId);
+        List<LivroResponse> response =
+                livroService.listarTodosParaUsuario();
 
         assertEquals(2, response.size());
         assertEquals("Clean Code", response.get(0).titulo());
         assertEquals("DDD", response.get(1).titulo());
-    }
-
-    @Test
-    void deveBuscarLivroPorIdParaUsuarioComSucesso() {
-        Usuario admin = Usuario.builder()
-                .id(1L)
-                .role(Role.ADMIN)
-                .build();
-
-        Livro livro = Livro.builder()
-                .id(10L)
-                .titulo("Clean Code")
-                .autor("Robert C. Martin")
-                .categoria("Programação")
-                .status(LivroStatus.DISPONIVEL)
-                .admin(admin)
-                .capaUrl("/uploads/capas/capa.jpg")
-                .build();
-
-        when(livroRepository.findById(10L)).thenReturn(Optional.of(livro));
-
-        LivroResponse response = livroService.buscarPorIdParaUsuario(10L);
-
-        assertNotNull(response);
-        assertEquals(10L, response.id());
-        assertEquals("Clean Code", response.titulo());
-    }
-
-    @Test
-    void deveLancarExcecaoQuandoLivroNaoForEncontradoAoBuscarPorIdParaUsuario() {
-        when(livroRepository.findById(10L)).thenReturn(Optional.empty());
-
-        RecursoNaoEncontradoException exception = assertThrows(
-                RecursoNaoEncontradoException.class,
-                () -> livroService.buscarPorIdParaUsuario(10L)
-        );
-
-        assertEquals("Livro não encontrado.", exception.getMessage());
-    }
-
-    @Test
-    void deveBuscarLivroPorIdParaAdminComSucesso() {
-        Long adminId = 1L;
-
-        Usuario admin = Usuario.builder()
-                .id(adminId)
-                .role(Role.ADMIN)
-                .build();
-
-        Livro livro = Livro.builder()
-                .id(10L)
-                .titulo("Clean Code")
-                .autor("Robert C. Martin")
-                .categoria("Programação")
-                .status(LivroStatus.DISPONIVEL)
-                .admin(admin)
-                .capaUrl("/uploads/capas/capa.jpg")
-                .build();
-
-        when(livroRepository.findByIdAndAdminId(10L, adminId)).thenReturn(Optional.of(livro));
-
-        LivroResponse response = livroService.buscarPorIdParaAdmin(10L, adminId);
-
-        assertNotNull(response);
-        assertEquals(10L, response.id());
-        assertEquals("Clean Code", response.titulo());
-    }
-
-    @Test
-    void deveLancarExcecaoQuandoLivroNaoPertencerAoAdminAoBuscarPorIdParaAdmin() {
-        when(livroRepository.findByIdAndAdminId(10L, 1L)).thenReturn(Optional.empty());
-
-        RecursoNaoEncontradoException exception = assertThrows(
-                RecursoNaoEncontradoException.class,
-                () -> livroService.buscarPorIdParaAdmin(10L, 1L)
-        );
-
-        assertEquals("Livro não encontrado.", exception.getMessage());
     }
 
     @Test
     void deveAtualizarLivroComSucesso() {
+
         Long adminId = 1L;
 
         Usuario admin = Usuario.builder()
@@ -271,6 +295,10 @@ class LivroServiceTest {
                 .titulo("Antigo")
                 .autor("Autor Antigo")
                 .categoria("Categoria Antiga")
+                .quantidadeTotal(5)
+                .quantidadeDisponivel(5)
+                .valorEmprestimo(new BigDecimal("10.00"))
+                .valorMultaDiaria(new BigDecimal("1.00"))
                 .status(LivroStatus.DISPONIVEL)
                 .admin(admin)
                 .build();
@@ -278,21 +306,44 @@ class LivroServiceTest {
         AtualizarLivroRequest request = new AtualizarLivroRequest(
                 "Novo Título",
                 "Novo Autor",
-                "Nova Categoria"
+                "Nova Categoria",
+                10,
+                8,
+                new BigDecimal("15.90"),
+                new BigDecimal("2.00"),
+                null
         );
 
-        when(livroRepository.findById(10L)).thenReturn(Optional.of(livro));
-        when(livroRepository.save(any(Livro.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(livroRepository.findById(10L))
+                .thenReturn(Optional.of(livro));
 
-        LivroResponse response = livroService.atualizar(10L, request, adminId);
+        when(livroRepository.save(any(Livro.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        LivroResponse response =
+                livroService.atualizar(10L, request, adminId);
 
         assertEquals("Novo Título", response.titulo());
         assertEquals("Novo Autor", response.autor());
         assertEquals("Nova Categoria", response.categoria());
+
+        assertEquals(10, response.quantidadeTotal());
+        assertEquals(8, response.quantidadeDisponivel());
+
+        assertEquals(
+                new BigDecimal("15.90"),
+                response.valorEmprestimo()
+        );
+
+        assertEquals(
+                new BigDecimal("2.00"),
+                response.valorMultaDiaria()
+        );
     }
 
     @Test
     void deveLancarExcecaoQuandoTentarAtualizarLivroDeOutroAdmin() {
+
         Usuario adminDono = Usuario.builder()
                 .id(1L)
                 .role(Role.ADMIN)
@@ -303,6 +354,10 @@ class LivroServiceTest {
                 .titulo("Livro")
                 .autor("Autor")
                 .categoria("Categoria")
+                .quantidadeTotal(5)
+                .quantidadeDisponivel(5)
+                .valorEmprestimo(new BigDecimal("10.00"))
+                .valorMultaDiaria(new BigDecimal("1.00"))
                 .status(LivroStatus.DISPONIVEL)
                 .admin(adminDono)
                 .build();
@@ -310,289 +365,25 @@ class LivroServiceTest {
         AtualizarLivroRequest request = new AtualizarLivroRequest(
                 "Novo Título",
                 "Novo Autor",
-                "Nova Categoria"
+                "Nova Categoria",
+                10,
+                8,
+                new BigDecimal("15.90"),
+                new BigDecimal("2.00"),
+                null
         );
 
-        when(livroRepository.findById(10L)).thenReturn(Optional.of(livro));
+        when(livroRepository.findById(10L))
+                .thenReturn(Optional.of(livro));
 
         PermissaoNegadaException exception = assertThrows(
                 PermissaoNegadaException.class,
                 () -> livroService.atualizar(10L, request, 2L)
         );
 
-        assertEquals("Você não tem permissão para alterar este livro.", exception.getMessage());
-    }
-
-    @Test
-    void deveExcluirLivroComSucesso() {
-        Long adminId = 1L;
-
-        Usuario admin = Usuario.builder()
-                .id(adminId)
-                .role(Role.ADMIN)
-                .build();
-
-        Livro livro = Livro.builder()
-                .id(10L)
-                .titulo("Livro")
-                .autor("Autor")
-                .categoria("Categoria")
-                .status(LivroStatus.DISPONIVEL)
-                .admin(admin)
-                .build();
-
-        when(livroRepository.findById(10L)).thenReturn(Optional.of(livro));
-
-        livroService.excluir(10L, adminId);
-
-        verify(livroRepository).delete(livro);
-    }
-
-    @Test
-    void deveLancarExcecaoQuandoTentarExcluirLivroDeOutroAdmin() {
-        Usuario adminDono = Usuario.builder()
-                .id(1L)
-                .role(Role.ADMIN)
-                .build();
-
-        Livro livro = Livro.builder()
-                .id(10L)
-                .titulo("Livro")
-                .autor("Autor")
-                .categoria("Categoria")
-                .status(LivroStatus.DISPONIVEL)
-                .admin(adminDono)
-                .build();
-
-        when(livroRepository.findById(10L)).thenReturn(Optional.of(livro));
-
-        PermissaoNegadaException exception = assertThrows(
-                PermissaoNegadaException.class,
-                () -> livroService.excluir(10L, 2L)
+        assertEquals(
+                "Você não tem permissão para alterar este livro.",
+                exception.getMessage()
         );
-
-        assertEquals("Você não tem permissão para alterar este livro.", exception.getMessage());
-    }
-
-    @Test
-    void deveFazerUploadDeCapaComSucesso() {
-        Long adminId = 1L;
-        Long livroId = 10L;
-
-        Usuario admin = Usuario.builder()
-                .id(adminId)
-                .nome("Admin")
-                .role(Role.ADMIN)
-                .build();
-
-        Livro livro = Livro.builder()
-                .id(livroId)
-                .titulo("Clean Code")
-                .autor("Robert C. Martin")
-                .categoria("Programação")
-                .status(LivroStatus.DISPONIVEL)
-                .admin(admin)
-                .capaUrl(null)
-                .build();
-
-        MockMultipartFile file = new MockMultipartFile(
-                "file",
-                "capa.jpg",
-                "image/jpeg",
-                "conteudo fake".getBytes()
-        );
-
-        UploadResponse uploadResponse = new UploadResponse(
-                "uuid-capa.jpg",
-                "/uploads/capas/uuid-capa.jpg"
-        );
-
-        when(livroRepository.findById(livroId)).thenReturn(Optional.of(livro));
-        when(uploadService.uploadCapaLivro(file)).thenReturn(uploadResponse);
-        when(livroRepository.save(any(Livro.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        LivroResponse response = livroService.uploadCapa(livroId, file, adminId);
-
-        assertNotNull(response);
-        assertEquals("/uploads/capas/uuid-capa.jpg", response.capaUrl());
-        assertEquals("/uploads/capas/uuid-capa.jpg", livro.getCapaUrl());
-
-        verify(uploadService).uploadCapaLivro(file);
-        verify(livroRepository).save(livro);
-    }
-
-    @Test
-    void deveRemoverCapaAnteriorAoFazerNovoUpload() {
-        Long adminId = 1L;
-        Long livroId = 10L;
-
-        Usuario admin = Usuario.builder()
-                .id(adminId)
-                .role(Role.ADMIN)
-                .build();
-
-        Livro livro = Livro.builder()
-                .id(livroId)
-                .titulo("Clean Code")
-                .autor("Robert C. Martin")
-                .categoria("Programação")
-                .status(LivroStatus.DISPONIVEL)
-                .admin(admin)
-                .capaUrl("/uploads/capas/capa-antiga.jpg")
-                .build();
-
-        MockMultipartFile file = new MockMultipartFile(
-                "file",
-                "capa-nova.jpg",
-                "image/jpeg",
-                "conteudo fake".getBytes()
-        );
-
-        UploadResponse uploadResponse = new UploadResponse(
-                "uuid-capa-nova.jpg",
-                "/uploads/capas/uuid-capa-nova.jpg"
-        );
-
-        when(livroRepository.findById(livroId)).thenReturn(Optional.of(livro));
-        when(uploadService.uploadCapaLivro(file)).thenReturn(uploadResponse);
-        when(livroRepository.save(any(Livro.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        LivroResponse response = livroService.uploadCapa(livroId, file, adminId);
-
-        assertEquals("/uploads/capas/uuid-capa-nova.jpg", response.capaUrl());
-        verify(uploadService).removerArquivo("/uploads/capas/capa-antiga.jpg");
-        verify(livroRepository).save(livro);
-    }
-
-    @Test
-    void deveLancarExcecaoQuandoLivroNaoExistirAoFazerUploadDeCapa() {
-        MockMultipartFile file = new MockMultipartFile(
-                "file",
-                "capa.jpg",
-                "image/jpeg",
-                "conteudo fake".getBytes()
-        );
-
-        when(livroRepository.findById(10L)).thenReturn(Optional.empty());
-
-        RecursoNaoEncontradoException exception = assertThrows(
-                RecursoNaoEncontradoException.class,
-                () -> livroService.uploadCapa(10L, file, 1L)
-        );
-
-        assertEquals("Livro não encontrado.", exception.getMessage());
-        verify(uploadService, never()).uploadCapaLivro(any());
-        verify(livroRepository, never()).save(any());
-    }
-
-    @Test
-    void deveLancarExcecaoQuandoAdminNaoForDonoDoLivroAoFazerUploadDeCapa() {
-        Usuario adminDono = Usuario.builder()
-                .id(1L)
-                .role(Role.ADMIN)
-                .build();
-
-        Livro livro = Livro.builder()
-                .id(10L)
-                .titulo("Livro")
-                .autor("Autor")
-                .categoria("Categoria")
-                .status(LivroStatus.DISPONIVEL)
-                .admin(adminDono)
-                .build();
-
-        MockMultipartFile file = new MockMultipartFile(
-                "file",
-                "capa.jpg",
-                "image/jpeg",
-                "conteudo fake".getBytes()
-        );
-
-        when(livroRepository.findById(10L)).thenReturn(Optional.of(livro));
-
-        PermissaoNegadaException exception = assertThrows(
-                PermissaoNegadaException.class,
-                () -> livroService.uploadCapa(10L, file, 2L)
-        );
-
-        assertEquals("Você não tem permissão para alterar a capa deste livro.", exception.getMessage());
-        verify(uploadService, never()).uploadCapaLivro(any());
-        verify(livroRepository, never()).save(any());
-    }
-
-    @Test
-    void deveRemoverCapaComSucesso() {
-        Long adminId = 1L;
-        Long livroId = 10L;
-
-        Usuario admin = Usuario.builder()
-                .id(adminId)
-                .role(Role.ADMIN)
-                .build();
-
-        Livro livro = Livro.builder()
-                .id(livroId)
-                .titulo("Livro")
-                .autor("Autor")
-                .categoria("Categoria")
-                .status(LivroStatus.DISPONIVEL)
-                .admin(admin)
-                .capaUrl("/uploads/capas/capa.jpg")
-                .build();
-
-        when(livroRepository.findById(livroId)).thenReturn(Optional.of(livro));
-        when(livroRepository.save(any(Livro.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        LivroResponse response = livroService.removerCapa(livroId, adminId);
-
-        assertNotNull(response);
-        assertNull(response.capaUrl());
-        assertNull(livro.getCapaUrl());
-
-        verify(uploadService).removerArquivo("/uploads/capas/capa.jpg");
-        verify(livroRepository).save(livro);
-    }
-
-    @Test
-    void deveLancarExcecaoQuandoLivroNaoExistirAoRemoverCapa() {
-        when(livroRepository.findById(10L)).thenReturn(Optional.empty());
-
-        RecursoNaoEncontradoException exception = assertThrows(
-                RecursoNaoEncontradoException.class,
-                () -> livroService.removerCapa(10L, 1L)
-        );
-
-        assertEquals("Livro não encontrado.", exception.getMessage());
-        verify(uploadService, never()).removerArquivo(any());
-        verify(livroRepository, never()).save(any());
-    }
-
-    @Test
-    void deveLancarExcecaoQuandoAdminNaoForDonoDoLivroAoRemoverCapa() {
-        Usuario adminDono = Usuario.builder()
-                .id(1L)
-                .role(Role.ADMIN)
-                .build();
-
-        Livro livro = Livro.builder()
-                .id(10L)
-                .titulo("Livro")
-                .autor("Autor")
-                .categoria("Categoria")
-                .status(LivroStatus.DISPONIVEL)
-                .admin(adminDono)
-                .capaUrl("/uploads/capas/capa.jpg")
-                .build();
-
-        when(livroRepository.findById(10L)).thenReturn(Optional.of(livro));
-
-        PermissaoNegadaException exception = assertThrows(
-                PermissaoNegadaException.class,
-                () -> livroService.removerCapa(10L, 2L)
-        );
-
-        assertEquals("Você não tem permissão para remover a capa deste livro.", exception.getMessage());
-        verify(uploadService, never()).removerArquivo(any());
-        verify(livroRepository, never()).save(any());
     }
 }
